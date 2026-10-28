@@ -4,6 +4,7 @@ Usage:
   uv run python scripts/judge_validation.py sample   # writes results/<model>/judge_validation_items.json (blind: no answers)
   (rate every item 0/1 in results/<model>/judge_validation_ratings.json as {"<id>": 0 or 1})
   uv run python scripts/judge_validation.py score    # Cohen's kappa (manual vs LLM) and both raters' accuracy vs truth
+  uv run python scripts/judge_validation.py steer_sample / steer_score   # same for the steering judge (concept, fluency 0-2)
 Local explanation: 40 (explanation, snippet) detection decisions are sampled with a fixed seed from autointerp.json;
 the rater sees only the explanation and the plain snippet. Ground truth = whether the snippet was a top firing.
 Global context: the judge is accepted if kappa >= 0.6 ("substantial", Landis & Koch 1977).
@@ -55,6 +56,32 @@ def score(res) -> None:
     print(out)
 
 
+def steer_sample(res) -> None:
+    """40 screen generations (seeded, stratified over clamp levels) shown blind: concept description + text only."""
+    gens = load_json(res / "screen.json")["generations"]
+    rng = np.random.default_rng(SEED)
+    picks = rng.choice(len(gens), N_ITEMS, replace=False)
+    labels = {p["key"]: p["label"] for p in load_json(res / "screen.json")["summary"]}
+    items = [{"id": n, "concept": labels[gens[i]["key"]], "text": gens[i]["text"]} for n, i in enumerate(picks)]
+    hidden = {str(n): {"concept": gens[i]["concept"], "fluency": gens[i]["fluency"], "level": gens[i]["level"]} for n, i in enumerate(picks)}
+    save_json(items, res / "steer_validation_items.json")
+    save_json(hidden, res / "steer_validation_hidden.json")
+
+
+def steer_score(res) -> None:
+    """Cohen's kappa between blind manual and LLM 0-2 ratings, per metric, plus exact agreement."""
+    hidden = load_json(res / "steer_validation_hidden.json")
+    mine = load_json(res / "steer_validation_ratings.json")  # {"<id>": {"concept": 0-2, "fluency": 0-2}}
+    out = {}
+    for m in ("concept", "fluency"):
+        a, b = [int(mine[i][m]) for i in hidden], [int(hidden[i][m]) for i in hidden]
+        out[m] = {"kappa": cohen_kappa(a, b), "exact_agreement": float(np.mean(np.array(a) == np.array(b))),
+                  "manual_mean": float(np.mean(a)), "llm_mean": float(np.mean(b))}
+    save_json(out, res / "steer_validation.json")
+    print(out)
+
+
 if __name__ == "__main__":
     s = load_settings()
-    sample(s.results_path(), s.run_dir()) if sys.argv[1] == "sample" else score(s.results_path())
+    {"sample": lambda: sample(s.results_path(), s.run_dir()), "score": lambda: score(s.results_path()),
+     "steer_sample": lambda: steer_sample(s.results_path()), "steer_score": lambda: steer_score(s.results_path())}[sys.argv[1]]()

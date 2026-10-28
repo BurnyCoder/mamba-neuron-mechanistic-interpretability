@@ -68,4 +68,5 @@ def phase_mechanism(settings) -> None:
         log.info("mechanism %s: factor %s | truncation %s | patch %.3f (null max %.3f)", p["key"], out[p["key"]]["factor_split"],
                  trunc, patch, max(patch_null))
     save_json(out, settings.results_path() / "h3_mechanism.json")
-    free_gpu(model)
+    del model  # drop the last reference first, otherwise empty_cache cannot release the weights
+    free_gpu()

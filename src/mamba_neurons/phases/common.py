@@ -17,9 +17,8 @@ from ..jsonio import load_json, save_json  # noqa: F401  (re-exported for the ph
 SPLITS = ("discovery", "heldout")
 
 
-def free_gpu(*objs) -> None:
-    """Drop references and release cached GPU memory before the next GPU user (e.g. Ollama)."""
-    del objs
+def free_gpu() -> None:
+    """Release cached GPU memory before the next GPU user (e.g. Ollama); callers `del model` first."""
     gc.collect()
     torch.cuda.empty_cache()  # https://pytorch.org/docs/stable/generated/torch.cuda.empty_cache.html
 

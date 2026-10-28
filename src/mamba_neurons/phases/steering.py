@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..judge import rate_concept, rate_fluency
+from ..judge import rate_concept, rate_fluency, steering_concept
 from ..llm import LocalLLM
 from ..logging_utils import get_logger
 from ..metrics import cluster_bootstrap_diff, cluster_bootstrap_mean, distinct_n, empirical_p, harmonic_mean, holm
@@ -25,6 +25,7 @@ from .common import free_gpu, get_windows, load_json, load_stats, pole_extreme, 
 log = get_logger(__name__)
 LEVELS = (2, 5, 10, 20)  # clamp multiples of the pole extreme (pre-registered)
 PROMPT_LEN, N_SCREEN, N_CONFIRM, N_RANDOM = 16, 10, 50, 20
+JUDGE_CTX = 2048  # judge prompts are < 1k tokens; a small KV cache keeps the 9B judge entirely on an 8 GB GPU
 CLEAN = 0.8
 
 
@@ -67,31 +68,36 @@ def phase_screen(settings) -> None:
             rows += _record_generations(model, tok, prompts, conts, {"key": p["key"], "level": c})
         log.info("screen %s (%s): e.g. c=%d -> %r", p["key"], p["label"], LEVELS[-1], rows[-1]["text"][:120])
     save_json({"poles": poles, "generations": rows}, settings.run_dir() / "screen_generations.json")
-    free_gpu(model)
+    del model  # drop the last reference first, otherwise empty_cache cannot release the weights
+    free_gpu()
 
 
 def _judge(llm, rows: list[dict], concept_of) -> None:
-    """Add concept / fluency / hm to each row in place (fluency cached per text)."""
-    fluency_cache: dict[str, int] = {}
+    """Add concept / fluency / hm to each row in place; fluency is rated once per distinct text."""
+    fluency = {}
+    for t in sorted({r["text"] for r in rows}):
+        fluency[t] = rate_fluency(llm, t)
+    log.info("fluency judged for %d distinct texts", len(fluency))
     for n, r in enumerate(rows, 1):
-        r["concept"] = rate_concept(llm, concept_of(r), r["text"])
-        if r["text"] not in fluency_cache:
-            fluency_cache[r["text"]] = rate_fluency(llm, r["text"])
-        r["fluency"] = fluency_cache[r["text"]]
+        r["concept"], r["fluency"] = rate_concept(llm, concept_of(r), r["text"]), fluency[r["text"]]
         r["hm"] = harmonic_mean(r["concept"], r["fluency"])
-        if n % 50 == 0:
-            log.info("judged %d/%d", n, len(rows))
+        if n % 200 == 0:
+            log.info("concept judged %d/%d", n, len(rows))
 
 
 def phase_screen_judge(settings) -> None:
     """Judge the screen; choose <= 3 poles (and their level) for confirmation by mean HM gain over unsteered."""
     data = load_json(settings.run_dir() / "screen_generations.json")
     poles = {p["key"]: p for p in data["poles"]}
+    promoted = {k: v["promoted"] for k, v in load_json(settings.run_dir() / "examples.json").items() if k in poles}
+    llm = LocalLLM(settings.ollama_host, settings.llm_model, num_ctx=JUDGE_CTX)
+    for key, p in poles.items():  # fixed before any steered text is judged
+        p["concept"] = steering_concept(llm, p["label"], promoted[key])
+        log.info("steering concept %s: %s -> %s", key, p["label"], p["concept"])
     base = [r for r in data["generations"] if r["key"] == "unsteered"]
     rows = [r for r in data["generations"] if r["key"] != "unsteered"]
     rows += [{**r, "key": k, "level": 0} for k in poles for r in base]  # unsteered judged against every pole's concept
-    llm = LocalLLM(settings.ollama_host, settings.llm_model)
-    _judge(llm, rows, lambda r: poles[r["key"]]["label"])
+    _judge(llm, rows, lambda r: poles[r["key"]]["concept"])
     llm.unload()
     summary = []
     for key, p in poles.items():
@@ -101,7 +107,7 @@ def phase_screen_judge(settings) -> None:
         summary.append({**p, "levels": stats, "best_level": best, "hm_gain": stats[best]["hm"] - stats[0]["hm"]})
     summary.sort(key=lambda s: -s["hm_gain"])
     save_json({"summary": summary, "generations": rows}, settings.results_path() / "screen.json")
-    plan = [{k: s[k] for k in ("key", "layer", "neuron", "sign", "label", "best_level", "hm_gain")} for s in summary[:3]]
+    plan = [{k: s[k] for k in ("key", "layer", "neuron", "sign", "label", "concept", "best_level", "hm_gain")} for s in summary[:3]]
     save_json(plan, settings.results_path() / "confirm_plan.json")
     log.info("confirm plan: %s", plan)
 
@@ -128,7 +134,7 @@ def phase_confirm(settings) -> None:
         value = s * c * pole_extreme(stats["discovery"], L, i, s)
         budget = residual_budget(model, L, i, value)
         dm = diffmean_vector(model, windows["heldout"], stats["heldout"]["neurons"], L, i, s, settings.seed)
-        prefix = np.asarray(tok(f"{p['label']}:\n").input_ids, dtype=prompts.dtype)
+        prefix = np.asarray(tok(f"{p['concept']}:\n").input_ids, dtype=prompts.dtype)  # prompting baseline (amendment 4)
         prompted = np.concatenate([prompts[:, :1], np.tile(prefix, (len(prompts), 1)), prompts[:, 1:]], axis=1)
         conditions = {"unsteered": None, "clamp": clamp_setup(L, i, value), "add": add_setup(L, i, value),
                       "diffmean": vector_setup(L, dm / dm.norm() * budget)}
@@ -146,15 +152,16 @@ def phase_confirm(settings) -> None:
         log.info("confirm %s: %d generations so far; clamp e.g. %r", p["key"], len(rows),
                  next(r["text"] for r in rows if r["key"] == p["key"] and r["condition"] == "clamp")[:150])
     save_json(rows, settings.run_dir() / "confirm_generations.json")
-    free_gpu(model)
+    del model  # drop the last reference first, otherwise empty_cache cannot release the weights
+    free_gpu()
 
 
 def phase_confirm_judge(settings) -> None:
     """Judge confirmation generations and run the pre-registered H2 tests."""
     rows = load_json(settings.run_dir() / "confirm_generations.json")
     plan = {p["key"]: p for p in load_json(settings.results_path() / "confirm_plan.json")}
-    llm = LocalLLM(settings.ollama_host, settings.llm_model)
-    _judge(llm, rows, lambda r: plan[r["key"]]["label"])
+    llm = LocalLLM(settings.ollama_host, settings.llm_model, num_ctx=JUDGE_CTX)
+    _judge(llm, rows, lambda r: plan[r["key"]]["concept"])
     llm.unload()
     results, pvals = {}, []
     for key in plan:
@@ -177,7 +184,7 @@ def phase_confirm_judge(settings) -> None:
                                       [r["prompt_idx"] for r in order(clamp)], seed=settings.seed)
         p_null = empirical_p(cond["clamp"]["hm"], null)
         pvals.append(p_null)
-        results[key] = {"label": plan[key]["label"], "conditions": cond, "random_null_hm": null,
+        results[key] = {"label": plan[key]["label"], "concept": plan[key]["concept"], "conditions": cond, "random_null_hm": null,
                         "clamp_minus_unsteered": {"diff": diff[0], "ci95": [diff[1], diff[2]]}, "p_vs_random_null": p_null}
     for key, p_adj in zip(results, holm(pvals)):
         r = results[key]

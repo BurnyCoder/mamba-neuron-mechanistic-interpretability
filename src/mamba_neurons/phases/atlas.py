@@ -44,7 +44,8 @@ def phase_benchmark(settings) -> None:
                "next_token_loss_nats": float(out.loss), "batch_size": settings.batch_size}
     log.info("benchmark: %s", results)
     save_json(results, settings.results_path() / "benchmark.json")
-    free_gpu(model)
+    del model  # drop the last reference first, otherwise empty_cache cannot release the weights
+    free_gpu()
 
 
 def phase_collect(settings) -> None:
@@ -58,7 +59,8 @@ def phase_collect(settings) -> None:
             continue
         log.info("collecting %s: %d windows, %d tokens", split, len(windows[split].tokens), windows[split].n_tokens)
         torch.save(collect_stats(model, windows[split], settings), out)
-    free_gpu(model)
+    del model  # drop the last reference first, otherwise empty_cache cannot release the weights
+    free_gpu()
 
 
 def phase_vocab(settings) -> None:
@@ -67,7 +69,8 @@ def phase_vocab(settings) -> None:
     v = vocab_stats(model)
     torch.save(v, settings.run_dir() / "vocab.pt")
     save_json({"median_vocab_kurtosis_per_layer": v["kurtosis"].median(1).values.tolist()}, settings.results_path() / "vocab_summary.json")
-    free_gpu(model)
+    del model  # drop the last reference first, otherwise empty_cache cannot release the weights
+    free_gpu()
 
 
 def phase_select(settings) -> None:
@@ -93,7 +96,8 @@ def phase_select(settings) -> None:
     save_json(stability, settings.results_path() / "split_stability.json")
     save_json(activation_shape(stats["discovery"]), settings.results_path() / "activation_shape.json")
     log.info("split stability (Spearman discovery vs held-out): %s", stability)
-    free_gpu(model)
+    del model  # drop the last reference first, otherwise empty_cache cannot release the weights
+    free_gpu()
 
 
 def phase_domains(settings) -> None:
@@ -105,7 +109,8 @@ def phase_domains(settings) -> None:
         c["score"] = abs(c["dprime"])
     save_json(cands, settings.results_path() / "domain_candidates.json")
     log.info("domain candidates: %s", [(c["domain"], c["layer"], c["neuron"], round(c["dprime"], 2)) for c in cands])
-    free_gpu(model)
+    del model  # drop the last reference first, otherwise empty_cache cannot release the weights
+    free_gpu()
 
 
 def candidate_poles(settings) -> list[dict]:
@@ -135,4 +140,5 @@ def phase_examples(settings) -> None:
     examples = build_examples(model, tok, windows, stats, stats["discovery"]["directions"], units, seed=settings.seed)
     save_json(examples, settings.run_dir() / "examples.json")
     log.info("built examples for %d poles", len(examples))
-    free_gpu(model)
+    del model  # drop the last reference first, otherwise empty_cache cannot release the weights
+    free_gpu()

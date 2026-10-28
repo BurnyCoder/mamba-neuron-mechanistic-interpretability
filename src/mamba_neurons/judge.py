@@ -41,9 +41,30 @@ errors or awkward phrasing, and 2 indicates the sentence is fluent and almost pe
 {sentence}
 [Sentence Fragment End]"""
 
-SYSTEM = "You are an impartial judge. Reply only with JSON: {\"explanation\": \"...\", \"rating\": 0, 1 or 2}."
+SYSTEM = ("You are an impartial judge. Keep the explanation to one short sentence. "
+          "Reply only with JSON: {\"explanation\": \"...\", \"rating\": 0, 1 or 2}.")
 SCHEMA = {"type": "object", "required": ["explanation", "rating"],
           "properties": {"explanation": {"type": "string"}, "rating": {"type": "integer", "enum": [0, 1, 2]}}}
+
+
+CONCEPT_SYSTEM = (
+    "You convert a description of when a language-model neuron fires into the concept that text would show if the "
+    "neuron were turned up during generation. Neurons that fire right before a word usually make the model write that "
+    "word; topic neurons make it write about the topic. Use the list of tokens the neuron pushes the model to predict. "
+    "Answer with a short concept of at most 10 words, phrased like 'mentions of the word \"all\"', 'legal terminology' "
+    "or 'email addresses'. Reply only with JSON: {\"concept\": \"...\"}."
+)
+CONCEPT_SCHEMA = {"type": "object", "required": ["concept"], "properties": {"concept": {"type": "string"}}}
+
+
+def steering_concept(llm, label: str, promoted: list[str]) -> str:
+    """Output-side concept for judging steered text, derived once per pole from its label and promoted tokens.
+
+    The detection label describes *inputs* ("fires before 'all'"); a steered model expresses the neuron's *output*
+    ("the word 'all'"), so the AxBench concept judge needs the latter (pre-registration amendment 4).
+    """
+    user = f"Neuron description: {label}\nTokens it pushes the model to predict next: {', '.join(repr(t) for t in promoted)}"
+    return str(llm.json("steering_concept", CONCEPT_SYSTEM, user, CONCEPT_SCHEMA).get("concept", label)).strip() or label
 
 
 def _rate(llm, kind: str, prompt: str) -> int:
