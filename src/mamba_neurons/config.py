@@ -95,7 +95,7 @@ def load_settings() -> Settings:
         n_random_directions_per_layer=int(_get("N_RANDOM_DIRECTIONS_PER_LAYER", "2")),
         seed=int(_get("SEED", "0")),
         ollama_host=_get("OLLAMA_HOST", "http://localhost:11434"),
-        llm_model=_get("LLM_MODEL", "qwen3.5:4b"),
+        llm_model=_get("LLM_MODEL", "qwen3.5:9b"),
         output_dir=Path(_get("OUTPUT_DIR", "outputs")),
         results_dir=Path(_get("RESULTS_DIR", "results")),
         log_dir=Path(_get("LOG_DIR", "logs")),

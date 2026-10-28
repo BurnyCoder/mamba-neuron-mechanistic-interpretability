@@ -175,10 +175,23 @@ DETECT_SYSTEM = (
 )
 
 
+def token_counts(examples: list[dict], offset: int, n: int = 5) -> str:
+    """Most frequent tokens at peak + `offset` (0 = the firing token, 1 = the token right after it), as 'tok' (count)."""
+    from collections import Counter
+
+    toks = Counter(ex["tokens"][ex["peak"] + offset] for ex in examples if ex["peak"] + offset < len(ex["tokens"]))
+    return ", ".join(f"{t!r} ({c})" for t, c in toks.most_common(n))
+
+
 def explain(llm, pole: dict) -> str:
-    """One-phrase explanation of a pole from its highlighted discovery examples."""
+    """One-phrase explanation of a pole from its highlighted discovery examples, promoted tokens and token counts."""
     shown = "\n".join(f"Example {i + 1}: {highlight(ex, pole['unit']['sign'])}" for i, ex in enumerate(pole["label"]))
-    reply = llm.json("explain", EXPLAIN_SYSTEM, f"Examples:\n{shown}\n\nExplanation as JSON:", EXPLAIN_SCHEMA)
+    user = (f"Examples:\n{shown}\n\n"
+            f"Most common tokens where it fires most: {token_counts(pole['label'], 0)}\n"
+            f"Most common tokens right after that: {token_counts(pole['label'], 1)}\n"
+            f"Tokens this neuron pushes the model to predict next: {', '.join(repr(t) for t in pole.get('promoted', []))}\n\n"
+            "Explanation as JSON:")
+    reply = llm.json("explain", EXPLAIN_SYSTEM, user, EXPLAIN_SCHEMA)
     return str(reply.get("explanation", "")).strip()
 
 
