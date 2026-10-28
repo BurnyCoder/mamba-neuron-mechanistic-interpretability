@@ -15,7 +15,7 @@ import torch
 from scipy.stats import spearmanr  # rank correlation for split stability
 
 from ..autointerp import audit_units, build_examples, unit_key
-from ..collect import collect_stats
+from ..collect import activation_shape, collect_stats
 from ..logging_utils import get_logger
 from ..model import load_model, n_layers, n_neurons
 from ..select import coherence, domain_candidates, domain_selectivity, rank_candidates
@@ -91,6 +91,7 @@ def phase_select(settings) -> None:
         b = stats["heldout"]["neurons"]["summary"][key].flatten().numpy()
         stability[key] = float(spearmanr(a, b, nan_policy="omit").statistic)
     save_json(stability, settings.results_path() / "split_stability.json")
+    save_json(activation_shape(stats["discovery"]), settings.results_path() / "activation_shape.json")
     log.info("split stability (Spearman discovery vs held-out): %s", stability)
     free_gpu(model)
 

@@ -123,3 +123,19 @@ def decode_index(token_idx, ctx_len: int) -> tuple[np.ndarray, np.ndarray]:
     """Global token index -> (window row, position inside `windows.tokens` row, 1-based because of the separator)."""
     token_idx = np.asarray(token_idx)
     return token_idx // ctx_len, token_idx % ctx_len + 1
+
+
+def activation_shape(stats: dict) -> dict:
+    """Exploratory privileged-basis summary: distribution of kurtosis / skew / frac_pos for neurons vs random directions.
+
+    Heavy tails (high kurtosis) mean a unit is near zero most of the time and fires rarely and strongly - the
+    signature of a detector-like neuron; isotropic random directions mix many neurons and are closer to Gaussian (3).
+    """
+    out = {}
+    for group in ("neurons", "random_dirs"):
+        s = stats[group]["summary"]
+        out[group] = {k: {q: float(s[k].flatten().quantile(p)) for q, p in (("p10", 0.1), ("median", 0.5), ("p90", 0.9))}
+                      for k in ("kurtosis", "skew", "frac_pos")}
+        out[group]["n_units"] = int(s["kurtosis"].numel())
+        out[group]["frac_positive_skew"] = float((s["skew"] > 0).float().mean())
+    return out
