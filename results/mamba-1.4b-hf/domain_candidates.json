@@ -1,0 +1,194 @@
+[
+ {
+  "layer": 0,
+  "neuron": 2107,
+  "sign": 1,
+  "domain": "Github",
+  "dprime": 2.1741673946380615,
+  "score": 2.1741673946380615
+ },
+ {
+  "layer": 32,
+  "neuron": 3719,
+  "sign": -1,
+  "domain": "Github",
+  "dprime": -2.1613447666168213,
+  "score": 2.1613447666168213
+ },
+ {
+  "layer": 0,
+  "neuron": 1037,
+  "sign": 1,
+  "domain": "Github",
+  "dprime": 2.130232810974121,
+  "score": 2.130232810974121
+ },
+ {
+  "layer": 47,
+  "neuron": 194,
+  "sign": -1,
+  "domain": "PubMed Abstracts",
+  "dprime": -3.3968076705932617,
+  "score": 3.3968076705932617
+ },
+ {
+  "layer": 35,
+  "neuron": 3257,
+  "sign": 1,
+  "domain": "PubMed Abstracts",
+  "dprime": 3.202770471572876,
+  "score": 3.202770471572876
+ },
+ {
+  "layer": 1,
+  "neuron": 3532,
+  "sign": 1,
+  "domain": "PubMed Abstracts",
+  "dprime": 3.0387773513793945,
+  "score": 3.0387773513793945
+ },
+ {
+  "layer": 30,
+  "neuron": 36,
+  "sign": 1,
+  "domain": "Wikipedia (en)",
+  "dprime": 3.002819538116455,
+  "score": 3.002819538116455
+ },
+ {
+  "layer": 47,
+  "neuron": 846,
+  "sign": 1,
+  "domain": "Wikipedia (en)",
+  "dprime": 2.1683971881866455,
+  "score": 2.1683971881866455
+ },
+ {
+  "layer": 36,
+  "neuron": 732,
+  "sign": 1,
+  "domain": "Wikipedia (en)",
+  "dprime": 1.9561012983322144,
+  "score": 1.9561012983322144
+ },
+ {
+  "layer": 0,
+  "neuron": 84,
+  "sign": 1,
+  "domain": "USPTO Backgrounds",
+  "dprime": 3.666546106338501,
+  "score": 3.666546106338501
+ },
+ {
+  "layer": 37,
+  "neuron": 3610,
+  "sign": -1,
+  "domain": "USPTO Backgrounds",
+  "dprime": -3.583369731903076,
+  "score": 3.583369731903076
+ },
+ {
+  "layer": 23,
+  "neuron": 397,
+  "sign": -1,
+  "domain": "USPTO Backgrounds",
+  "dprime": -3.5370564460754395,
+  "score": 3.5370564460754395
+ },
+ {
+  "layer": 1,
+  "neuron": 1296,
+  "sign": -1,
+  "domain": "FreeLaw",
+  "dprime": -3.2342286109924316,
+  "score": 3.2342286109924316
+ },
+ {
+  "layer": 45,
+  "neuron": 2751,
+  "sign": 1,
+  "domain": "FreeLaw",
+  "dprime": 2.903745651245117,
+  "score": 2.903745651245117
+ },
+ {
+  "layer": 0,
+  "neuron": 2634,
+  "sign": 1,
+  "domain": "FreeLaw",
+  "dprime": 2.6665263175964355,
+  "score": 2.6665263175964355
+ },
+ {
+  "layer": 45,
+  "neuron": 3322,
+  "sign": -1,
+  "domain": "DM Mathematics",
+  "dprime": -9.476433753967285,
+  "score": 9.476433753967285
+ },
+ {
+  "layer": 24,
+  "neuron": 4057,
+  "sign": -1,
+  "domain": "DM Mathematics",
+  "dprime": -8.854776382446289,
+  "score": 8.854776382446289
+ },
+ {
+  "layer": 26,
+  "neuron": 1780,
+  "sign": -1,
+  "domain": "DM Mathematics",
+  "dprime": -6.589913368225098,
+  "score": 6.589913368225098
+ },
+ {
+  "layer": 31,
+  "neuron": 2093,
+  "sign": 1,
+  "domain": "ArXiv",
+  "dprime": 3.645862340927124,
+  "score": 3.645862340927124
+ },
+ {
+  "layer": 23,
+  "neuron": 334,
+  "sign": 1,
+  "domain": "ArXiv",
+  "dprime": 3.146864414215088,
+  "score": 3.146864414215088
+ },
+ {
+  "layer": 47,
+  "neuron": 444,
+  "sign": 1,
+  "domain": "ArXiv",
+  "dprime": 3.090634346008301,
+  "score": 3.090634346008301
+ },
+ {
+  "layer": 34,
+  "neuron": 3185,
+  "sign": -1,
+  "domain": "StackExchange",
+  "dprime": -2.682077169418335,
+  "score": 2.682077169418335
+ },
+ {
+  "layer": 38,
+  "neuron": 4078,
+  "sign": 1,
+  "domain": "StackExchange",
+  "dprime": 2.276027202606201,
+  "score": 2.276027202606201
+ },
+ {
+  "layer": 33,
+  "neuron": 196,
+  "sign": -1,
+  "domain": "StackExchange",
+  "dprime": -2.101012945175171,
+  "score": 2.101012945175171
+ }
+]
