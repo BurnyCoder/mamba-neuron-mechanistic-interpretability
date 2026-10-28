@@ -40,8 +40,11 @@ def phase_plots(settings) -> None:
     if have("screen") and have("confirm_plan"):
         screens = [load_json(res / f"{n}.json") for n in ("screen", "screen_low") if have(n)]
         plots.fig_dose_response(screens, [p["key"] for p in load_json(res / "confirm_plan.json")], out / "dose_response.png")
-    if have("h2"):
-        plots.fig_h2(load_json(res / "h2.json")["results"], out / "h2_conditions.png")
+        if have("confirm_plan_h2b"):
+            plots.fig_dose_response(screens, [p["key"] for p in load_json(res / "confirm_plan_h2b.json")], out / "dose_response_h2b.png")
+    for name in ("h2", "h2b"):
+        if have(name):
+            plots.fig_h2(load_json(res / f"{name}.json")["results"], out / f"{name}_conditions.png")
     if have("h3_mechanism"):
         mech = load_json(res / "h3_mechanism.json")
         plots.fig_h3(mech, out / "h3_ablation.png")
