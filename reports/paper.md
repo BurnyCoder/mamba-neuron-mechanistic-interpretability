@@ -132,7 +132,29 @@ The steering judge was validated on 40 blind items. The concept judge is reliabl
 | 20 | 0.70 | 0.41 | 0.01 | 0.17 | 0.000 |
 
 ### 4.4 H2: pre-registered confirmation
-H2_RESULT_PLACEHOLDER
+The three pre-registered poles were each confirmed on 50 fresh neutral prompts (47 for L32 N2669) × 2 seeds, against an 80-neuron random null (Table 4, Figure 2). Clamping raised the HM above unsteered for all three. The paired 95% CIs exclude 0: +0.29 for "as", +0.09 for "[", +0.27 for "set".
+
+Against the random-neuron null:
+- **Concept alone.** Every target beat all 80 null neurons on the concept score (p = 1/81).
+- **Primary HM metric.** L30 N2121 and L32 N2669 beat the null after Holm correction (p = 0.037); L28 N953 did not (p = 0.074).
+- **Fluency.** No pole reached the pre-registered absolute judged fluency of ≥ 1.0. Unsteered text scored only 0.41–0.46 with this judge.
+
+**H2 is therefore not supported as pre-registered.** Under the non-inferiority fluency rule later registered for H2b (distinct-2 ≥ 0.9 × unsteered and judged fluency ≥ unsteered − 0.2), L30 N2121 would pass. That reading is post hoc for H2.
+
+The baselines behaved differently:
+- **Prompting** with the concept as a prefix produced lower HM than neuron clamping for all three poles (0.15, 0.02, 0.07).
+- **DiffMean** at the same residual-norm budget produced maximal concept but degenerate text (distinct-2 0.03–0.17, HM 0), whereas the neuron's write direction kept distinct-2 at 0.75–0.85.
+- **Additive steering** matched clamping, because these neurons are near zero outside their firings.
+
+: **Table 4.** H2 confirmation (prompt set B). HM = harmonic mean of the judge's concept and fluency scores (0–2).
+
+| Pole · dose | Unsteered HM | Clamp HM [95% CI] | Prompting HM | DiffMean HM | Null HM mean / max | Holm p | Clamp concept | Clamp distinct-2 |
+|---|---|---|---|---|---|---|---|---|
+| L30 N2121 "as" · 2× | 0.09 | **0.38** [0.26, 0.52] | 0.15 | 0.00 | 0.05 / 0.27 | **0.037** | 1.68 | 0.85 |
+| L28 N953 "[" · 5× | 0.00 | 0.09 [0.03, 0.17] | 0.02 | 0.00 | 0.01 / 0.10 | 0.074 | 0.83 | 0.77 |
+| L32 N2669 "set" · 2× | 0.00 | **0.27** [0.17, 0.39] | 0.07 | 0.00 | 0.01 / 0.13 | **0.037** | 1.78 | 0.75 |
+
+![**Figure 2.** H2. Left: HM per condition with 95% prompt-cluster-bootstrap CIs. Right: concept score. Gray dots: 80 random same-layer neurons at the same relative clamp.](../results/mamba-1.4b-hf/figures/h2_conditions.png)
 
 ### 4.5 Post-hoc low-dose regime and H2b
 The pre-registered doses (≥ 2× the maximum) sit far outside these neurons' natural range. For the three H2 poles, the median of the 200 strongest firings in 256k held-out tokens is 9–38× below the discovery maximum. A post-hoc sweep at 0.25×, 0.5× and 1× found a regime where the concept enters without breaking the text (Table 2). The best poles kept judged fluency within 0.1–0.2 of the unsteered level (0.5–0.8 vs 0.6) and distinct-2 at 0.82–0.93 (unsteered 0.91):
