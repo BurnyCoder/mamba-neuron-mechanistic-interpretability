@@ -36,14 +36,17 @@ def _record_generations(model, tok, prompts, conts, meta: dict) -> list[dict]:
 
 
 def _screen_poles(settings) -> list[dict]:
-    """Candidate poles whose label is clean (BA >= 0.8), best candidate score first (amendment 2 in the prereg)."""
+    """Candidate poles (both streams) whose label is clean (BA >= 0.8), in stream order (amendment 2 in the prereg)."""
+    from .atlas import candidate_poles
+    from ..autointerp import unit_key
+
     labels = load_json(settings.results_path() / "autointerp.json")
-    cands = load_json(settings.results_path() / "candidates.json")
     poles = []
-    for c in cands:
-        key = f"neuron:L{c['layer']}:N{c['neuron']}:{'+' if c['sign'] > 0 else '-'}"
+    for u in candidate_poles(settings):
+        key = unit_key(u)
         if key in labels and labels[key]["balanced_accuracy"] >= CLEAN:
-            poles.append({**c, "key": key, "label": labels[key]["explanation"], "ba": labels[key]["balanced_accuracy"]})
+            poles.append({"key": key, "layer": u["layer"], "neuron": u["index"], "sign": u["sign"], "group": u["group"],
+                          "label": labels[key]["explanation"], "ba": labels[key]["balanced_accuracy"], **u["meta"]})
     return poles
 
 

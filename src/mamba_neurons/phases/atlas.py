@@ -18,7 +18,7 @@ from ..autointerp import audit_units, build_examples, unit_key
 from ..collect import collect_stats
 from ..logging_utils import get_logger
 from ..model import load_model, n_layers, n_neurons
-from ..select import coherence, rank_candidates
+from ..select import coherence, domain_candidates, domain_selectivity, rank_candidates
 from ..vocab import vocab_stats
 from .common import SPLITS, free_gpu, get_windows, load_json, load_stats, save_json
 
@@ -95,6 +95,32 @@ def phase_select(settings) -> None:
     free_gpu(model)
 
 
+def phase_domains(settings) -> None:
+    """Second (exploratory, amendment 2) candidate stream: neurons most selective for distinctive Pile domains."""
+    model, tok = load_model(settings.model_name, settings.dtype, settings.device)
+    dprime = domain_selectivity(model, get_windows(settings, tok)["discovery"], seed=settings.seed, batch=settings.batch_size)
+    cands = domain_candidates(dprime)
+    for c in cands:
+        c["score"] = abs(c["dprime"])
+    save_json(cands, settings.results_path() / "domain_candidates.json")
+    log.info("domain candidates: %s", [(c["domain"], c["layer"], c["neuron"], round(c["dprime"], 2)) for c in cands])
+    free_gpu(model)
+
+
+def candidate_poles(settings) -> list[dict]:
+    """Both candidate streams as unit dicts (formula ranking first, then domain-selective neurons), deduplicated."""
+    res = settings.results_path()
+    streams = [("candidate", res / "candidates.json"), ("domain", res / "domain_candidates.json")]
+    units, seen = [], set()
+    for group, path in streams:
+        for c in (load_json(path) if path.exists() else []):
+            u = {"kind": "neuron", "layer": c["layer"], "index": c["neuron"], "sign": c["sign"], "group": group}
+            if unit_key(u) not in seen:
+                seen.add(unit_key(u))
+                units.append({**u, "meta": {k: v for k, v in c.items() if k not in ("layer", "neuron", "sign")}})
+    return units
+
+
 def phase_examples(settings) -> None:
     """Highlighted examples for the H1 audit sample (random neurons + random directions) and the candidates."""
     model, tok = load_model(settings.model_name, settings.dtype, settings.device)
@@ -104,10 +130,7 @@ def phase_examples(settings) -> None:
     for u in units:
         u["group"] = "audit"
     keys = {unit_key(u) for u in units}
-    for c in load_json(settings.results_path() / "candidates.json"):
-        u = {"kind": "neuron", "layer": c["layer"], "index": c["neuron"], "sign": c["sign"], "group": "candidate"}
-        if unit_key(u) not in keys:
-            units.append(u)
+    units += [u for u in candidate_poles(settings) if unit_key(u) not in keys]
     examples = build_examples(model, tok, windows, stats, stats["discovery"]["directions"], units, seed=settings.seed)
     save_json(examples, settings.run_dir() / "examples.json")
     log.info("built examples for %d poles", len(examples))

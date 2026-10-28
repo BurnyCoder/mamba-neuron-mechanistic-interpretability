@@ -4,7 +4,7 @@ Global context: `pipeline.py --phases all` runs them top to bottom; GPU (Mamba) 
 only one model occupies the 8 GB GPU at a time.
 """
 
-from .atlas import phase_benchmark, phase_collect, phase_examples, phase_select, phase_vocab
+from .atlas import phase_benchmark, phase_collect, phase_domains, phase_examples, phase_select, phase_vocab
 from .interp import phase_h1, phase_label
 from .mechanism import phase_mechanism
 from .publish import phase_export, phase_plots
@@ -15,6 +15,7 @@ PHASES = {
     "collect": phase_collect,
     "vocab": phase_vocab,
     "select": phase_select,
+    "domains": phase_domains,
     "examples": phase_examples,
     "label": phase_label,  # Ollama
     "h1": phase_h1,
