@@ -65,9 +65,10 @@ The score is the mean of the three rank-percentiles. The top 60 poles go forward
   - **add:** `a_i ← a_i + s·c·|extreme|`, which is equivalent to adding `δ·w_i` to the residual.
   - **DiffMean:** mean residual at the pole's held-out top firings minus mean at random positions, after block ℓ, scaled to the add condition's residual norm `|δ|·‖w_i‖` ([AxBench](https://arxiv.org/abs/2501.17148)).
   - **prompting:** a `<label>:\n` prefix.
-  - **random neurons:** the same relative clamp on 20 other neurons of the same layer.
-- **Prompts.** The first 16 tokens of held-out documents. Set A (10 prompts) is used for the exploratory screen. Set B (50 prompts) is used for the confirmation, keeping only prompts where the pole stays below its 90th discovery percentile.
-- **Judge.** The AxBench concept and fluency templates (0–2), answered by the local LLM as JSON. The primary metric is the per-generation harmonic mean.
+  - **random neurons:** the same relative clamp on 80 other neurons of the same layer, 10 prompts each (amendment 5; the original 20 could never survive Holm correction).
+- **Prompts.** The first 16 tokens of held-out documents. Set A (10 prompts) is used for the screens. Set B (50 prompts from a pool of 400 after A) is used for the H2 confirmation, and set C (50 prompts from the next 400) for H2b. B and C keep only prompts where the pole stays below its 90th discovery percentile on every token.
+- **Doses.** The pre-registered screen uses c ∈ {2, 5, 10, 20} × pole max. The post-hoc low-dose sweep uses {0.25, 0.5, 1}. H2 confirms the screen's top 3; H2b confirms the low-dose sweep's top 3 (amendment 7), with a non-inferiority fluency rule: distinct-2 ≥ 0.9 × unsteered and judged fluency ≥ unsteered − 0.2.
+- **Judge.** The AxBench concept and fluency templates (0–2), answered by the local LLM as JSON with a one-sentence explanation and a 2k context. The concept is an output-side *steering concept* derived from the label and promoted tokens (amendment 4). The primary metric is the per-generation harmonic mean.
 - **Other metrics.** Continuation NLL under the unsteered model, and distinct-2.
 
 ## 8. Mechanism (`mechanism.py`)
