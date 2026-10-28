@@ -12,7 +12,7 @@ import numpy as np
 import torch
 
 from ..logging_utils import get_logger
-from ..mechanism import context_truncation, factor_split, next_token_logp, patching_effect, top_positions, zero_ablation
+from ..mechanism import context_truncation, factor_split, logp_at, next_token_logp, patching_effect, top_positions, zero_ablation
 from ..metrics import empirical_p
 from ..model import load_model, n_neurons
 from .common import free_gpu, get_windows, load_json, load_stats, save_json
@@ -48,13 +48,14 @@ def phase_mechanism(settings) -> None:
         # Counterfactual patching into random held-out positions: neuron set to its median firing value at one position.
         nf_rows, nf_pos = rng.integers(0, len(held.tokens), 200), rng.integers(1, ctx + 1, 200)
         promoted = (vstats["top_ids"] if s > 0 else vstats["bot_ids"])[L, :10, i].tolist()
-        patch = patching_effect(model, held, s * float(np.median(vals)), nf_rows, nf_pos, L, i, promoted)
+        clean_lp = logp_at(model, held, nf_rows, nf_pos)  # shared by the target and all null patches
+        patch = patching_effect(model, held, s * float(np.median(vals)), nf_rows, nf_pos, L, i, promoted, clean_lp)
         patch_null = []
         for j in others:
             group = stats["discovery"]["neurons"]
             donor = s * float(np.median(np.abs((group["top_val"] if s > 0 else group["bot_val"])[L, :, int(j)].numpy())))
             prom_j = (vstats["top_ids"] if s > 0 else vstats["bot_ids"])[L, :10, int(j)].tolist()
-            patch_null.append(patching_effect(model, held, donor, nf_rows, nf_pos, L, int(j), prom_j))
+            patch_null.append(patching_effect(model, held, donor, nf_rows, nf_pos, L, int(j), prom_j, clean_lp))
         out[p["key"]] = {
             "label": p["label"], "n_positions": int(keep.sum()), "top_values_median": float(np.median(vals)),
             "h3": {"ablation_drop_nats": drop, "random_null": null, "p_empirical": p_h3, "h3_supported": bool(p_h3 <= 1 / 21)},

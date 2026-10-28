@@ -94,27 +94,49 @@ def factor_split(model, windows, rows, positions, layer: int, neuron: int, batch
 
 
 @torch.no_grad()
-def context_truncation(model, windows, rows, positions, layer: int, neuron: int, ks=(1, 2, 4, 8, 16, 32, None)) -> dict:
-    """Mean activation ratio a_i(last k tokens) / a_i(full window) at each firing, for each context length k."""
-    full = []
-    out = {}
-    for r, p in zip(rows, positions):
-        full.append(float(record_layer(model, torch.from_numpy(windows.tokens[r:r + 1, : p + 1]).long().to(model.device), layer)[0, -1, neuron]))
-    full = np.asarray(full)
-    for k in ks:
-        vals = []
-        for r, p in zip(rows, positions):
-            start = 1 if k is None else max(1, p - k + 1)
-            ids = np.concatenate([[0], windows.tokens[r, start:p + 1]])  # separator + last k tokens
-            vals.append(float(record_layer(model, torch.from_numpy(ids[None]).long().to(model.device), layer)[0, -1, neuron]))
-        out["all" if k is None else str(k)] = float(np.mean(np.asarray(vals) / full))
-    return out
+def context_truncation(model, windows, rows, positions, layer: int, neuron: int, ks=(1, 2, 4, 8, 16, 32, None),
+                       batch: int = 32) -> dict:
+    """Mean activation ratio a_i(last k tokens) / a_i(full window) at each firing, for each context length k.
+
+    Each truncated input is [separator] + the last k tokens ending at the firing; inputs of equal length are batched.
+    """
+    def last_values(seqs: list[np.ndarray]) -> np.ndarray:
+        vals = np.zeros(len(seqs))
+        by_len: dict[int, list[int]] = {}
+        for j, s in enumerate(seqs):
+            by_len.setdefault(len(s), []).append(j)
+        for idx in by_len.values():
+            for b in range(0, len(idx), batch):
+                chunk = idx[b:b + batch]
+                ids = torch.from_numpy(np.stack([seqs[j] for j in chunk])).long().to(model.device)
+                vals[chunk] = record_layer(model, ids, layer)[:, -1, neuron].float().cpu().numpy()
+        return vals
+
+    def seqs_for(k):
+        return [np.concatenate([[0], windows.tokens[r, (1 if k is None else max(1, p - k + 1)):p + 1]]) for r, p in zip(rows, positions)]
+
+    full = last_values(seqs_for(None))
+    return {"all" if k is None else str(k): float(np.mean(last_values(seqs_for(k)) / full)) for k in ks}
 
 
 @torch.no_grad()
-def patching_effect(model, windows, donor_value: float, rows, positions, layer: int, neuron: int, token_ids, batch: int = 16) -> float:
-    """Mean change of mean log p(token_ids) at (rows, positions) when the neuron is set to `donor_value` at that position only."""
-    tok = torch.as_tensor(token_ids, device=model.device)
+def logp_at(model, windows, rows, positions, batch: int = 16) -> torch.Tensor:
+    """(n, V) next-token log-probabilities at each (row, position) of the unmodified model, on CPU."""
+    out = []
+    for b in range(0, len(rows), batch):
+        ids = torch.from_numpy(windows.tokens[np.asarray(rows[b:b + batch])]).long().to(model.device)
+        idx = torch.arange(len(ids), device=ids.device)
+        pos = torch.as_tensor(np.asarray(positions[b:b + batch]), device=ids.device)
+        out.append(F.log_softmax(model(input_ids=ids, use_cache=False).logits.float()[idx, pos], -1).cpu())
+    return torch.cat(out)
+
+
+@torch.no_grad()
+def patching_effect(model, windows, donor_value: float, rows, positions, layer: int, neuron: int, token_ids,
+                    clean: torch.Tensor, batch: int = 16) -> float:
+    """Mean change of mean log p(token_ids) at (rows, positions) when the neuron is set to `donor_value` at that
+    position only (single-site counterfactual patch); `clean` = `logp_at(...)` of the same rows/positions."""
+    tok = torch.as_tensor(token_ids)
     deltas = []
     for b in range(0, len(rows), batch):
         r, p = np.asarray(rows[b:b + batch]), np.asarray(positions[b:b + batch])
@@ -122,14 +144,12 @@ def patching_effect(model, windows, donor_value: float, rows, positions, layer: 
         idx = torch.arange(len(ids), device=ids.device)
         pos = torch.as_tensor(p, device=ids.device)
 
-        def patch(a):  # set the neuron only at each row's own position (counterfactual single-site patch)
+        def patch(a):  # set the neuron only at each row's own position
             a = a.clone()
-            if a.shape[1] > 1:  # full-sequence forward (not a cached decode step)
-                a[idx, pos, neuron] = donor_value
+            a[idx, pos, neuron] = donor_value
             return a
 
-        clean = F.log_softmax(model(input_ids=ids, use_cache=False).logits.float()[idx, pos], -1)[:, tok].mean(-1)
         with Hooks(model).edit_neurons(layer, patch):
-            patched = F.log_softmax(model(input_ids=ids, use_cache=False).logits.float()[idx, pos], -1)[:, tok].mean(-1)
-        deltas.append((patched - clean).cpu().numpy())
+            patched = F.log_softmax(model(input_ids=ids, use_cache=False).logits.float()[idx, pos], -1).cpu()
+        deltas.append((patched[:, tok].mean(-1) - clean[b:b + batch][:, tok].mean(-1)).numpy())
     return float(np.concatenate(deltas).mean())

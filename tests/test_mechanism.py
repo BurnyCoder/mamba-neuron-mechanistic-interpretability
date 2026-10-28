@@ -6,7 +6,8 @@ Global context: H3 and the exploratory mechanism results rely on these functions
 import numpy as np
 
 from mamba_neurons.data import Windows
-from mamba_neurons.mechanism import context_truncation, factor_split, next_token_logp, patching_effect, top_positions, zero_ablation
+from mamba_neurons.mechanism import (context_truncation, factor_split, logp_at, next_token_logp, patching_effect, top_positions,
+                                     zero_ablation)
 
 LAYER, NEURON = 20, 7
 
@@ -42,4 +43,10 @@ def test_ablation_and_patching_run(small_model, sample_ids):
     clean = next_token_logp(model, w, [0, 1], [3, 4])
     ablated = next_token_logp(model, w, [0, 1], [3, 4], zero_ablation(LAYER, NEURON))
     assert clean.shape == (2,) and (clean <= 0).all() and not np.allclose(clean, ablated)
-    assert abs(patching_effect(model, w, 500.0, [0], [3], LAYER, NEURON, [11, 12])) > 0  # a large patch moves the logits
+    clean_lp = logp_at(model, w, [0], [3])
+    assert abs(patching_effect(model, w, 500.0, [0], [3], LAYER, NEURON, [11, 12], clean_lp)) > 0  # a large patch moves the logits
+    import torch
+    from mamba_neurons.model import record
+
+    own = float(record(model, torch.from_numpy(w.tokens[:1]).long().to(model.device), [LAYER])[LAYER][0, 3, NEURON])
+    assert abs(patching_effect(model, w, own, [0], [3], LAYER, NEURON, [11, 12], clean_lp)) < 1e-3  # patching its own value = no-op
