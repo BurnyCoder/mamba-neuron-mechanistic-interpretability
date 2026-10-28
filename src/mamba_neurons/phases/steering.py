@@ -207,6 +207,11 @@ def _confirm_judge(settings, plan_name: str, gen_name: str, out_name: str, nonin
     llm = LocalLLM(settings.ollama_host, settings.llm_model, num_ctx=JUDGE_CTX)
     _judge(llm, rows, lambda r: plan[r["key"]]["concept"])
     llm.unload()
+    _confirm_stats(settings, rows, plan, out_name, noninferiority)
+
+
+def _confirm_stats(settings, rows: list[dict], plan: dict, out_name: str, noninferiority: bool) -> None:
+    """Pre-registered statistics on judged confirmation rows (no LLM calls), saved to results/<out_name>.json."""
     results, pvals = {}, []
     for key in plan:
         mine = [r for r in rows if r["key"] == key]
@@ -250,6 +255,12 @@ def _confirm_judge(settings, plan_name: str, gen_name: str, out_name: str, nonin
 def phase_confirm_judge(settings) -> None:
     """Judge the H2 confirmation."""
     _confirm_judge(settings, "confirm_plan", "confirm_generations", "h2", noninferiority=False)
+
+
+def phase_h2_stats(settings) -> None:
+    """Recompute the H2 statistics from the already-judged rows in results/h2.json (e.g. after adding verdicts)."""
+    plan = {p["key"]: p for p in load_json(settings.results_path() / "confirm_plan.json")}
+    _confirm_stats(settings, load_json(settings.results_path() / "h2.json")["generations"], plan, "h2", noninferiority=False)
 
 
 def phase_confirm_h2b_judge(settings) -> None:
