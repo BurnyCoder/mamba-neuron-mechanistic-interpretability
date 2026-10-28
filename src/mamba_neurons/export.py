@@ -43,7 +43,8 @@ def export_site(settings, tokenizer, out_dir) -> int:
     h3 = opt("h3_mechanism", {})
     screen_summary = {s["key"]: s for s in screens[0]["summary"]}
     low_summary = {s["key"]: s for s in screens[1]["summary"]}
-    generations = screens[0]["generations"] + screens[1]["generations"]
+    # unsteered rows are identical in both sweeps (same prompts and seed): keep them once, from the screen
+    generations = screens[0]["generations"] + [g for g in screens[1]["generations"] if g["level"] != 0]
     (out_dir / "poles").mkdir(parents=True, exist_ok=True)
     index = []
     for key, lab in labels.items():
@@ -60,10 +61,9 @@ def export_site(settings, tokenizer, out_dir) -> int:
         if key in screen_summary:
             levels = {str(float(c)): v for c, v in screen_summary[key]["levels"].items()}
             levels.update({str(float(c)): v for c, v in low_summary.get(key, {}).get("levels", {}).items()})
-            gens = [{**g, "level": float(g["level"])} for g in generations if g["key"] == key]
             detail["screen"] = {"concept": screen_summary[key]["concept"], "levels": levels,
                                 "best_level": float(low_summary.get(key, screen_summary[key])["best_level"]),
-                                "generations": [g for i, g in enumerate(gens) if g["level"] or i < 10]}  # unsteered once
+                                "generations": [{**g, "level": float(g["level"])} for g in generations if g["key"] == key]}
         if key in h2:
             detail["confirm"] = h2[key]
         if key in h2b:
