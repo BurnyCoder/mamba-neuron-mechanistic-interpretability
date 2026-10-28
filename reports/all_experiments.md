@@ -9,7 +9,17 @@ Detailed reports:
 Pre-registration and all amendments: [preregistration.md](preregistration.md).
 
 ## Summary table
-EXPERIMENT_TABLE_PLACEHOLDER
+| # | Experiment | What was tested | Method | Data | Main result | Verdict |
+|---|---|---|---|---|---|---|
+| 1 | Atlas | activation shape of all 196,608 neurons vs 96 random directions | streaming moments + top-k poles | 2.32M + 0.65M Pile tokens | median kurtosis 354 vs 6.9; 86% positively skewed; split ρ 0.94–0.999 | descriptive (privileged basis visible in statistics) |
+| 2 | H1 audit | clean-pole rate (LLM label, held-out detection BA ≥ 0.8), neurons vs directions | qwen3.5:9b explain + detect | 192 + 192 poles | 15.1% vs 13.5%, p = 0.39; formula candidates 50% clean | **H1 not supported** (judge κ 0.55) |
+| 3a | Screen | clamp 2–20× max on 39 clean poles | AxBench judge | prompt set A | concept 0.08 → 0.82, fluency 0.60 → 0.11 | exploratory |
+| 3b | H2 | 3 poles at screen doses vs 80-neuron null, DiffMean, prompting | as pre-registered | set B, 100 gens/condition | concept > all 80 random neurons (p = 1/81) for all 3; HM Holm p 0.037/0.074/0.037; fluency < 1.0 | **H2 not supported** (fluency rule) |
+| 3c | Low-dose sweep | clamp 0.25–1× max | same judge | set A | 0.25×: concept 0.52, distinct-2 0.83 | post hoc |
+| 3d | H2b | 3 low-dose poles, non-inferior fluency | pre-registered after 3c | fresh set C | HM 0.46/0.24/0.35 vs 0.06/0.08/0.00; Holm p 0.037 each; fluency non-inferior | **H2b supported (3/3)** |
+| 4a | H3 | zero-ablation drop at top firings vs 20 random neurons | causal ablation | held-out | 0.0018 and 0.012 nats (p = 1/21); "as" −0.003 (p = 0.76) | **2/3 supported** (uncorrected), tiny effects |
+| 4b | Mechanism | gate vs SSM factor; context truncation; patching | interventions | held-out | gate always open; k ≤ 4 keeps 0–11% of activation; patching ≈ null | exploratory |
+| 4c | Truncation survey | k = 4 ratio across 39 poles by depth | interventions | held-out | layers 0–1: 0.92; ≥ 20: 0.10–0.24 | post hoc |
 
 ## Models involved
 | Model | Role | Architecture | Size | Training data and objective | Notes |

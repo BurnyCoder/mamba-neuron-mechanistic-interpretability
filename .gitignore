@@ -17,7 +17,7 @@ outputs/
 *.safetensors
 
 # Raw run logs are large; curated logs are copied into reports/logs/
-logs/
+/logs/
 
 # Paper build intermediates
 reports/*.aux
