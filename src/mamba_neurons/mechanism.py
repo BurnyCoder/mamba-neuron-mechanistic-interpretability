@@ -2,8 +2,8 @@
 
 Local explanation:
   * `top_positions` - exhaustive scan of a split for a pole's strongest firings (more than the stored top-k).
-  * `ablation_drop` - H3: zero-ablate a neuron at all positions and measure the drop in log p(actual next token) at
-    given positions (causal necessity; zero-ablation as in Gurnee et al. 2024 https://arxiv.org/abs/2401.12181).
+  * `next_token_logp` + `zero_ablation` - H3: zero-ablate a neuron at all positions and measure the drop in log p(actual
+    next token) at given positions (causal necessity; zero-ablation as in Gurnee et al. 2024 https://arxiv.org/abs/2401.12181).
   * `factor_split` - decompose a = y * SiLU(z) at firings: is the pole driven by the gate z or by the SSM output y?
     (the "double-negative regime" is y<0 and z<0, where SiLU(z)<0 makes a>0; cf. Goodfire's SwiGLU note).
   * `context_truncation` - re-run each firing with only the last k tokens of context: k<=4 sits inside Mamba's
@@ -24,10 +24,11 @@ from .model import Hooks, blocks, clamp_edit, record_layer
 
 
 @torch.no_grad()
-def top_positions(model, windows, layer: int, neuron: int, sign: int, n: int, batch: int = 32) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """(rows, positions, values) of the `n` largest signed activations s*a_i over all windows (separator excluded)."""
+def top_positions(model, windows, layer: int, neuron: int, sign: int, n: int, max_windows: int | None = None,
+                  batch: int = 32) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """(rows, positions, values) of the `n` largest signed activations s*a_i over the first `max_windows` windows."""
     vals = []
-    for b in range(0, len(windows.tokens), batch):
+    for b in range(0, len(windows.tokens) if max_windows is None else min(max_windows, len(windows.tokens)), batch):
         a = record_layer(model, torch.from_numpy(windows.tokens[b:b + batch]).long().to(model.device), layer)
         vals.append((sign * a[:, 1:, neuron].float()).cpu().numpy())
     vals = np.concatenate(vals)  # (n_windows, ctx)
@@ -49,37 +50,43 @@ def _next_token_logp(model, ids: torch.Tensor, positions: torch.Tensor, setup=No
 
 
 @torch.no_grad()
-def ablation_drop(model, windows, rows, positions, layer: int, neuron: int, batch: int = 16) -> float:
-    """Mean drop in log p(next token) at (rows, positions) when neuron (layer, neuron) is zero-ablated everywhere."""
-    ctx = windows.tokens.shape[1] - 1
+def next_token_logp(model, windows, rows, positions, setup=None, batch: int = 16) -> np.ndarray:
+    """log p(actual next token) at each (row, position), optionally under an intervention `setup(hooks)`.
+
+    Positions on the last window token (no next token inside the window) must be filtered out by the caller.
+    """
     rows, positions = np.asarray(rows), np.asarray(positions)
-    keep = positions < ctx  # a firing on the last position has no next token in the window
-    rows, positions = rows[keep], positions[keep]
-    drops = []
+    out = []
     for b in range(0, len(rows), batch):
         ids = torch.from_numpy(windows.tokens[rows[b:b + batch]]).long().to(model.device)
-        pos = torch.as_tensor(positions[b:b + batch], device=model.device)
-        clean = _next_token_logp(model, ids, pos)
-        ablated = _next_token_logp(model, ids, pos, lambda h: h.edit_neurons(layer, clamp_edit(neuron, 0.0)))
-        drops.append((clean - ablated).cpu().numpy())
-    return float(np.concatenate(drops).mean())
+        out.append(_next_token_logp(model, ids, torch.as_tensor(positions[b:b + batch], device=model.device), setup).cpu().numpy())
+    return np.concatenate(out)
+
+
+def zero_ablation(layer: int, neuron: int):
+    """Setup that zero-ablates one neuron at every position (H3 intervention)."""
+    return lambda hooks: hooks.edit_neurons(layer, clamp_edit(neuron, 0.0))
 
 
 @torch.no_grad()
-def factor_split(model, windows, rows, positions, layer: int, neuron: int) -> dict:
+def factor_split(model, windows, rows, positions, layer: int, neuron: int, batch: int = 16) -> dict:
     """Gate z_i and SSM factor y_i = a_i / SiLU(z_i) at the given firings (z from the second half of in_proj)."""
     n_inner = blocks(model)[layer].mixer.intermediate_size
-    store = {}
-    handle = blocks(model)[layer].mixer.in_proj.register_forward_hook(lambda m, i, o: store.__setitem__("p", o))
-    ids = torch.from_numpy(windows.tokens[np.asarray(rows)]).long().to(model.device)
-    try:
-        a = record_layer(model, ids, layer)[..., neuron].float()
-    finally:
-        handle.remove()
-    idx = torch.arange(len(ids), device=ids.device)
-    pos = torch.as_tensor(np.asarray(positions), device=ids.device)
-    z = store["p"][idx, pos, n_inner + neuron].float()  # in_proj output = [x | z] along the last dim
-    a_at = a[idx, pos]
+    rows, positions = np.asarray(rows), np.asarray(positions)
+    a_all, z_all = [], []
+    for b in range(0, len(rows), batch):
+        store = {}
+        handle = blocks(model)[layer].mixer.in_proj.register_forward_hook(lambda m, i, o: store.__setitem__("p", o))
+        ids = torch.from_numpy(windows.tokens[rows[b:b + batch]]).long().to(model.device)
+        try:
+            a = record_layer(model, ids, layer)[..., neuron].float()
+        finally:
+            handle.remove()
+        idx = torch.arange(len(ids), device=ids.device)
+        pos = torch.as_tensor(positions[b:b + batch], device=ids.device)
+        z_all.append(store["p"][idx, pos, n_inner + neuron].float())  # in_proj output = [x | z] along the last dim
+        a_all.append(a[idx, pos])
+    a_at, z = torch.cat(a_all), torch.cat(z_all)
     gate = F.silu(z)
     y = a_at / gate.where(gate.abs() > 1e-6, torch.full_like(gate, 1e-6))
     return {"a": a_at.cpu().tolist(), "z": z.cpu().tolist(), "silu_z": gate.cpu().tolist(), "y": y.cpu().tolist(),

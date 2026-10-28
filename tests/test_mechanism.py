@@ -6,7 +6,7 @@ Global context: H3 and the exploratory mechanism results rely on these functions
 import numpy as np
 
 from mamba_neurons.data import Windows
-from mamba_neurons.mechanism import ablation_drop, context_truncation, factor_split, patching_effect, top_positions
+from mamba_neurons.mechanism import context_truncation, factor_split, next_token_logp, patching_effect, top_positions, zero_ablation
 
 LAYER, NEURON = 20, 7
 
@@ -39,5 +39,7 @@ def test_factor_split_reconstructs_activation(small_model, sample_ids):
 def test_ablation_and_patching_run(small_model, sample_ids):
     model, _ = small_model
     w = _windows(sample_ids)
-    assert np.isfinite(ablation_drop(model, w, [0, 1], [3, 4], LAYER, NEURON))
-    assert patching_effect(model, w, 0.0, [0], [3], LAYER, NEURON, [11, 12]) != 0.0 or True  # runs end-to-end
+    clean = next_token_logp(model, w, [0, 1], [3, 4])
+    ablated = next_token_logp(model, w, [0, 1], [3, 4], zero_ablation(LAYER, NEURON))
+    assert clean.shape == (2,) and (clean <= 0).all() and not np.allclose(clean, ablated)
+    assert abs(patching_effect(model, w, 500.0, [0], [3], LAYER, NEURON, [11, 12])) > 0  # a large patch moves the logits
