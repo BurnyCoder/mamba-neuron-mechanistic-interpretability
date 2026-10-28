@@ -5,7 +5,7 @@ Local explanation:
   * screen: clamp each well-labelled candidate pole at c x |pole extreme| for c in LEVELS on 10 prompts; judge concept
     (the pole's label) + fluency; pick <= 3 poles by mean harmonic-mean gain over unsteered -> results/confirm_plan.json.
   * confirm: for each planned pole, 50 neutral prompts (neuron inactive) x 2 seeds under unsteered / clamp / add /
-    DiffMean / prompting, plus 20 random same-layer neurons x 50 prompts; judge; H2 statistics as pre-registered.
+    DiffMean / prompting, plus 80 random same-layer neurons x 10 prompts (amendment 5); judge; H2 statistics.
 Global context: H2 in reports/preregistration.md; the confirm plan must be appended there before `confirm` runs.
 """
 
@@ -24,7 +24,8 @@ from .common import free_gpu, get_windows, load_json, load_stats, pole_extreme, 
 
 log = get_logger(__name__)
 LEVELS = (2, 5, 10, 20)  # clamp multiples of the pole extreme (pre-registered)
-PROMPT_LEN, N_SCREEN, N_CONFIRM, N_RANDOM = 16, 10, 50, 20
+PROMPT_LEN, N_SCREEN, N_CONFIRM = 16, 10, 50
+N_RANDOM, N_RANDOM_PROMPTS = 80, 10  # amendment 5: min empirical p = 1/81, so Holm over 3 poles can reach < 0.05
 JUDGE_CTX = 2048  # judge prompts are < 1k tokens; a small KV cache keeps the 9B judge entirely on an 8 GB GPU
 CLEAN = 0.8
 
@@ -147,7 +148,8 @@ def phase_confirm(settings) -> None:
         others = rng.choice([j for j in range(n_neurons(model)) if j != i], N_RANDOM, replace=False)
         for j in others:
             vj = s * c * pole_extreme(stats["discovery"], L, int(j), s)
-            rows += _record_generations(model, tok, prompts, generate(model, prompts, clamp_setup(L, int(j), vj), settings.seed),
+            sub = prompts[:N_RANDOM_PROMPTS]  # first 10 of the 50 confirmation prompts
+            rows += _record_generations(model, tok, sub, generate(model, sub, clamp_setup(L, int(j), vj), settings.seed),
                                         {"key": p["key"], "condition": f"random:{int(j)}", "seed": settings.seed})
         log.info("confirm %s: %d generations so far; clamp e.g. %r", p["key"], len(rows),
                  next(r["text"] for r in rows if r["key"] == p["key"] and r["condition"] == "clamp")[:150])
