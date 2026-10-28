@@ -20,8 +20,10 @@ import numpy as np
 import torch
 
 from .collect import decode_index
+from .data import decode_tokens
 from .logging_utils import get_logger
 from .model import record_layer
+from .vocab import direction_logit_effect
 
 log = get_logger(__name__)
 SPAN_BEFORE, SPAN_AFTER = 24, 8  # snippet = 24 tokens before the peak, the peak, and 8 after (delphi uses ~32-token contexts)
@@ -111,7 +113,10 @@ def build_examples(model, tokenizer, windows: dict, stats: dict, directions: tor
     out = {}
     for key, p in plan.items():
         u = p["unit"]
-        out[key] = {"unit": u}
+        vec = directions[u["layer"], :, u["index"]] if u["kind"] == "direction" else torch.nn.functional.one_hot(
+            torch.tensor(u["index"]), directions.shape[1]).float()
+        top_ids = (u["sign"] * direction_logit_effect(model, u["layer"], vec)).topk(10).indices.tolist()
+        out[key] = {"unit": u, "promoted": [tokenizer.decode([t]) for t in top_ids]}  # what this pole pushes the model to say
         for name in ("label", "detect_top", "detect_random"):
             exs = []
             for split, r, pos in p[name]:
@@ -119,7 +124,7 @@ def build_examples(model, tokenizer, windows: dict, stats: dict, directions: tor
                 lo, hi = _span(pos, ctx)
                 acts = acts_cache[(u["layer"], split, r, u["kind"], u["index"])]
                 exs.append({"split": split, "row": r, "peak": pos - lo,
-                            "tokens": [tokenizer.decode([t]) for t in win.tokens[r, lo:hi + 1]],
+                            "tokens": decode_tokens(tokenizer, win.tokens[r, lo:hi + 1]),
                             "acts": [round(float(x), 4) for x in acts[lo:hi + 1]]})
             out[key][name] = exs
     return out
@@ -152,10 +157,13 @@ EXPLAIN_SYSTEM = (
     "You are a meticulous AI researcher investigating a single neuron inside a language model. "
     "You will see text examples where the neuron fires strongly; the tokens on which it fires most are marked "
     "between delimiters like <<this>> (consecutive marked tokens are wrapped together <<like this>>). "
-    "Find what the marked tokens and their immediate context have in common: a specific token or word, a concept, a "
-    "syntactic role, a language, a code or formatting pattern, or something the next token is likely to be. "
-    "Write ONE concise explanation of at most 15 words. Do not mention the delimiters, do not list alternatives, "
-    "and be as specific as the examples allow. Reply as JSON: {\"explanation\": \"...\"}."
+    "You also get the tokens the neuron pushes the model to predict next. Many neurons fire on the token *before* "
+    "a predictable word, so check whether the words right after the marked tokens match that list. "
+    "Find what the marked tokens and their context have in common: a specific token or word, the word that comes "
+    "next, a concept or topic, a syntactic role, a language, or a code or formatting pattern. "
+    "Write ONE concise explanation of at most 15 words describing when the neuron fires. Do not mention the "
+    "delimiters, do not list alternatives, and be as specific as the examples allow. "
+    "Reply as JSON: {\"explanation\": \"...\"}."
 )
 EXPLAIN_SCHEMA = {"type": "object", "properties": {"explanation": {"type": "string"}}, "required": ["explanation"]}
 

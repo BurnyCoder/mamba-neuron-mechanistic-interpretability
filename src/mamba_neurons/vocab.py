@@ -33,6 +33,13 @@ def logit_effects(model, layer: int, neurons: torch.Tensor) -> torch.Tensor:
 
 
 @torch.no_grad()
+def direction_logit_effect(model, layer: int, vec: torch.Tensor) -> torch.Tensor:
+    """(V,) direct logit effect W_U (g ⊙ W_out v) of writing along neuron-space direction `v` (one-hot v = one neuron)."""
+    w_u, g = unembed_directions(model)
+    return w_u @ (g * (write_vectors(model, layer).float() @ vec.to(model.device).float()))
+
+
+@torch.no_grad()
 def vocab_stats(model, top_n: int = 20, chunk: int = 512) -> dict[str, torch.Tensor]:
     """Per-neuron vocab mean/std/skew/kurtosis plus top promoted / suppressed token ids and values, all layers."""
     out = {k: [] for k in ("mean", "std", "skew", "kurtosis", "top_ids", "top_vals", "bot_ids", "bot_vals")}
