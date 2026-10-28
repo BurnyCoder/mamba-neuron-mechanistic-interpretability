@@ -235,7 +235,17 @@ CONCLUSION_PLACEHOLDER
 - Wu et al. (2025). AxBench: Steering LLMs? Even Simple Baselines Outperform Sparse Autoencoders. [arXiv:2501.17148](https://arxiv.org/abs/2501.17148)
 
 ## Appendix A: pre-registration amendments
-APPENDIX_PLACEHOLDER
+The full text is in [reports/preregistration.md](https://github.com/BurnyCoder/mamba-neuron-mechanistic-interpretability/blob/main/reports/preregistration.md). Each amendment records what data existed when it was written.
+
+| # | When | Change | Data seen at the time |
+|---|---|---|---|
+| 1 | before any analysis | power figure corrected from "~45" to "~40 per arm" (n = 100 unchanged) | none |
+| 2 | during the activation pass | promoted tokens in the label prompt (symmetric for neurons and directions); byte-correct token decoding; domain-neuron candidate stream; screen restricted to clean labels | smoke runs on mamba-130m only |
+| 3 | before any main-model label | labeller/judge `qwen3.5:9b`, chosen over 4B on 20 mamba-130m smoke poles (mean BA 0.66 vs 0.61); token-count hints | smoke data only |
+| 4 | screen generated, 7 judge calls seen | judge steering against an output-side *steering concept*; one-sentence judge explanations; 2k context | 7 discarded judge calls |
+| 5 | before any confirmation data | random null 20 → 80 neurons × 10 prompts, because 1/21 can never survive Holm over 3 poles | none for confirmation |
+| 6 | screen judged | confirmation plan frozen (3 poles, doses); post-hoc low-dose sweep announced | screen results (prompt set A) |
+| 7 | low-dose sweep judged, before any prompt-set-C data | H2b: 3 low-dose poles on fresh prompt set C; non-inferiority fluency rule (judged fluency κ = 0.34) | screen and low-dose results (set A), H2 not yet judged |
 
 ## AI statement
 Claude Code (Anthropic's coding agent, model Claude Opus 5.5) wrote this codebase and this paper: the code, the experiments, the analyses and the text. A human, Libor Burian, provided the exact specification that was executed. Human cleanup and rewriting of the paper are in progress. The "manual" judge-validation ratings reported here were produced by Claude Code, not by a human annotator.
