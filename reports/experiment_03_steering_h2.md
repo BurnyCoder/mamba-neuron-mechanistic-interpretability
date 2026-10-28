@@ -1,6 +1,6 @@
 # Experiment 3: turning single neurons up (steering screen, H2, post-hoc dose sweep, H2b)
 
-**Status:** screen and low-dose sweep done; H2 confirmation judging in progress.
+**Status:** done.
 **Code:** `steer.py`, `judge.py`, `phases/steering.py`.
 **Results:** `results/mamba-1.4b-hf/{screen,screen_low,confirm_plan,h2,steer_validation}.json`.
 
@@ -43,10 +43,109 @@ The pre-registered selection rule (largest mean HM gain over unsteered) picked t
 The concept judge is reliable. The fluency judge is harsh: it often gives 0–1 to fluent base-model text, which explains why unsteered text scores only 0.60. The pre-registered H2 fluency criterion (≥ 1.0) is therefore close to unreachable even without steering. We report NLL and distinct-2 as objective fluency proxies. NLL under the unsteered model is a weak proxy for degeneration, because repetitive text becomes predictable; distinct-2 is better.
 
 ## H2 confirmation (pre-registered)
-H2_PLACEHOLDER
+Prompt set B: 50 held-out openings on which the neuron is inactive (47 for L32 N2669), × 2 seeds = 100 generations per condition. The null is 80 random same-layer neurons × 10 prompts at the same relative clamp. Values are means, with HM 95% prompt-cluster-bootstrap CIs.
+
+| Pole · dose · concept | Condition | HM [95% CI] | Concept | Fluency (judge) | distinct-2 | NLL |
+|---|---|---|---|---|---|---|
+| **L30 N2121 · 2× · "the word 'as'"** | unsteered | 0.090 [0.033, 0.157] | 0.24 | 0.45 | 0.93 | 1.22 |
+| | **clamp** | **0.383 [0.257, 0.517]** | **1.68** | 0.33 | 0.85 | 2.31 |
+| | add | 0.383 [0.257, 0.513] | 1.66 | 0.33 | 0.85 | 2.33 |
+| | DiffMean | 0.000 | 1.92 | 0.00 | 0.05 | 1.26 |
+| | prompting | 0.150 [0.077, 0.223] | 0.48 | 0.52 | 0.91 | 1.40 |
+| | 80 random neurons | mean 0.052, max 0.267 | mean 0.19, max 0.60 | | | |
+| **L28 N953 · 5× · "opening square brackets"** | unsteered | 0.000 | 0.05 | 0.41 | 0.94 | 1.25 |
+| | **clamp** | **0.093 [0.027, 0.173]** | **0.83** | 0.21 | 0.77 | 2.42 |
+| | add | 0.093 [0.027, 0.173] | 0.82 | 0.21 | 0.77 | 2.40 |
+| | DiffMean | 0.000 | 1.57 | 0.00 | 0.17 | 1.94 |
+| | prompting | 0.023 [0.000, 0.060] | 0.11 | 0.46 | 0.92 | 1.44 |
+| | 80 random neurons | mean 0.006, max 0.100 | mean 0.03, max 0.40 | | | |
+| **L32 N2669 · 2× · "mentions of the word 'set'"** | unsteered | 0.000 | 0.01 | 0.46 | 0.92 | 1.30 |
+| | **clamp** | **0.273 [0.167, 0.387]** | **1.78** | 0.22 | 0.75 | 2.57 |
+| | add | 0.184 [0.096, 0.284] | 1.78 | 0.17 | 0.76 | 2.57 |
+| | DiffMean | 0.000 | 2.00 | 0.00 | 0.03 | 1.35 |
+| | prompting | 0.071 [0.014, 0.149] | 0.47 | 0.37 | 0.90 | 1.55 |
+| | 80 random neurons | mean 0.008, max 0.133 | mean 0.03, max 0.40 | | | |
+
+| Pole | Clamp − unsteered HM [95% CI] | Empirical p vs null (HM) | Holm p | p vs null (concept only) | Absolute fluency rule (pre-registered) | Non-inferior fluency rule (post hoc for H2) |
+|---|---|---|---|---|---|---|
+| L30 N2121 | +0.293 [0.157, 0.433] | 1/81 = 0.012 | **0.037** | 0.012 | ✗ (0.33 < 1.0) | ✓ |
+| L28 N953 | +0.093 [0.027, 0.173] | 0.074 | 0.074 | 0.012 | ✗ | ✗ |
+| L32 N2669 | +0.273 [0.167, 0.387] | 0.012 | **0.037** | 0.012 | ✗ | ✗ (distinct-2 0.75 < 0.83) |
+
+**Verdict: H2 as pre-registered is not supported.** No pole reaches judged fluency ≥ 1.0, and unsteered text does not either (0.41–0.46).
+
+**What the data do show:**
+- **Specific concept injection.** For all three neurons the clamped concept score is higher than for every one of the 80 random neurons clamped at the same relative dose (p = 1/81). For L30 N2121 and L32 N2669 the primary HM metric also beats the null after Holm correction (p = 0.037). Clamping a random neuron in the same layer does not produce the concept, so the effect is specific to the chosen neuron.
+- **Neuron steering beats prompting** on HM for all three poles: 0.38 vs 0.15, 0.09 vs 0.02, 0.27 vs 0.07. The prompting prefix ("the word 'as':") barely raises the concept at all.
+- **DiffMean at the same residual-norm budget is far too strong.** It drives distinct-2 to 0.03–0.17 ("as as as …", "set set set …", "[X['['X…"), so concept is maximal but HM = 0. The neuron's write direction, at the same norm, keeps text far more intact (distinct-2 0.75–0.85). That suggests the neuron direction is much better aligned with "fluent use of the concept" than the DiffMean direction, at least at this budget. This is post hoc: the budget was not tuned for DiffMean.
+- **Add ≈ clamp**, as expected, because these neurons sit at about 0 outside their firings.
+
+Examples (clamp, seed 0, prompt set B):
+- **L30 N2121:** "…let your children know you are **as** proud of them **as** they are. In addition, the holiday is also a great time…" (concept 2, fluency 1)
+- **L32 N2669:** "**Sets** of five Wistar-plus-Lewis adult mice was **set** up for five successive **sets** of experiments…" (concept 2, fluency 0)
+- **L28 N953:** "…last day of the month of […]]]…"
 
 ## Post-hoc low-dose sweep (0.25×, 0.5×, 1× pole max; same prompts and concepts)
-LOW_PLACEHOLDER
+Averaged over the 39 poles:
+
+| Dose | Concept | Fluency | distinct-2 | HM |
+|---|---|---|---|---|
+| unsteered | 0.08 | 0.60 | 0.91 | 0.050 |
+| 0.25× | 0.52 | 0.42 | 0.83 | 0.092 |
+| 0.5× | 0.75 | 0.31 | 0.68 | 0.080 |
+| 1× | 0.80 | 0.19 | 0.51 | 0.054 |
+
+The low-dose regime injects most of the concept while keeping most of the fluency. The top three poles by HM gain were frozen as H2b (amendment 7):
+
+| Pole | Concept | Dose | HM | Concept score | Fluency | distinct-2 |
+|---|---|---|---|---|---|---|
+| L30 N815 | "from" | 0.5× | 0.67 | 1.6 | 0.6 | 0.93 |
+| L30 N2121 | "as" | 0.5× | 0.60 | 1.6 | 0.8 | 0.92 |
+| L37 N71 | "first" | 0.25× | 0.53 | 1.6 | 0.5 | 0.82 |
+
+## H2b confirmation (pre-registered after the sweep; fresh prompt set C)
+| Pole · dose | Condition | HM [95% CI] | Concept | Fluency | distinct-2 | NLL |
+|---|---|---|---|---|---|---|
+| **L30 N815 · 0.5× · "from"** | unsteered | 0.057 [0.010, 0.117] | 0.16 | 0.48 | 0.93 | 1.07 |
+| | **clamp** | **0.460 [0.310, 0.620]** | **1.53** | 0.45 | 0.90 | 1.58 |
+| | add | 0.447 [0.303, 0.597] | 1.53 | 0.44 | 0.90 | 1.56 |
+| | DiffMean | 0.157 [0.063, 0.273] | 1.48 | 0.17 | 0.67 | 1.62 |
+| | prompting | 0.137 [0.057, 0.227] | 0.45 | 0.54 | 0.93 | 1.28 |
+| | 80 random neurons | mean 0.009, max 0.133 | mean 0.05, max 0.40 | | | |
+| **L30 N2121 · 0.5× · "as"** | unsteered | 0.077 [0.020, 0.150] | 0.19 | 0.41 | 0.93 | 1.13 |
+| | **clamp** | **0.240 [0.140, 0.350]** | **1.17** | 0.32 | 0.92 | 1.41 |
+| | add | 0.270 [0.160, 0.390] | 1.16 | 0.33 | 0.92 | 1.41 |
+| | DiffMean | 0.187 [0.097, 0.290] | 0.94 | 0.34 | 0.85 | 1.50 |
+| | prompting | 0.097 [0.037, 0.170] | 0.47 | 0.43 | 0.91 | 1.28 |
+| | 80 random neurons | mean 0.013, max 0.133 | mean 0.11, max 0.30 | | | |
+| **L37 N71 · 0.25× · "first"** | unsteered | 0.000 | 0.10 | 0.42 | 0.93 | 1.18 |
+| | **clamp** | **0.353 [0.227, 0.487]** | **1.62** | 0.42 | 0.87 | 1.64 |
+| | add | 0.363 [0.217, 0.527] | 1.65 | 0.43 | 0.88 | 1.64 |
+| | DiffMean | 0.150 [0.067, 0.243] | 1.23 | 0.23 | 0.84 | 1.69 |
+| | prompting | 0.107 [0.040, 0.187] | 0.44 | 0.46 | 0.93 | 1.39 |
+| | 80 random neurons | mean 0.000, max 0.000 | mean 0.00, max 0.20 | | | |
+
+| Pole | Clamp − unsteered HM [95% CI] | p vs null (HM) | Holm p | Judged fluency non-inferior? | distinct-2 ≥ 0.9 × unsteered? | **H2b** |
+|---|---|---|---|---|---|---|
+| L30 N815 | +0.403 [0.253, 0.560] | 1/81 | **0.037** | ✓ (0.45 ≥ 0.28) | ✓ (0.90 ≥ 0.84) | **supported** |
+| L30 N2121 | +0.163 [0.070, 0.263] | 1/81 | **0.037** | ✓ (0.32 ≥ 0.21) | ✓ (0.92 ≥ 0.84) | **supported** |
+| L37 N71 | +0.353 [0.227, 0.487] | 1/81 | **0.037** | ✓ (0.42 ≥ 0.22) | ✓ (0.87 ≥ 0.84) | **supported** |
+
+**Verdict: H2b is supported for all three neurons.** At a quarter to half of its maximum activation, each single neuron makes the model use its word in otherwise normal text:
+- far more than unsteered text (concept 0.10–0.19 → 1.17–1.62);
+- more than prompting with the concept (0.44–0.47);
+- more than any of 80 random neurons pushed equally hard.
+
+This comes without a measurable fluency loss: judged fluency is within 0.1, and distinct-2 is within 0.06.
+
+At the same residual-norm budget, DiffMean gives as much concept for "from" but much less fluent text (distinct-2 0.67), and less concept for "as" and "first". Additive steering and clamping are equivalent.
+
+Examples (clamp, seed 0, prompt set C):
+- **N815:** "…have been evaluated **from** the analysis of the stress values and the mechanical properties of the bone."
+- **N2121:** "…Redistribution and use in source **as** well **as** in binary form, **as** either…"
+- **N71:** "…have been recognized as the **first** step in understanding the biomechanical behavior of the bone. The **first** step…"
+
+**Caveats.** Doses and poles were chosen post hoc on prompt set A and then confirmed on disjoint prompts; the confirmation is the evidence, not the sweep. The concepts are single function words, i.e. lexical rather than topical steering. The fluency judge is noisy (κ = 0.34), which is why distinct-2 is part of the rule.
 
 ## Learnings
 1. **Judge the right concept.** We first judged steering against the *input-side* detection label. The judge then answered a mechanism question ("is there a token before 'all'?") and gave 0 even to "all all all". Steering must be judged against what the neuron *writes*. We caught this after 7 judge calls and recorded it as amendment 4.
