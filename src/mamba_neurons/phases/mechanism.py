@@ -70,3 +70,29 @@ def phase_mechanism(settings) -> None:
     save_json(out, settings.results_path() / "h3_mechanism.json")
     del model  # drop the last reference first, otherwise empty_cache cannot release the weights
     free_gpu()
+
+
+def phase_truncation_survey(settings) -> None:
+    """POST HOC: context-truncation curve for every screened pole (all depths), using its stored held-out top firings.
+
+    Early-layer token/n-gram detectors should keep their activation with k <= 4 tokens (the conv window); neurons that
+    need the recurrent SSM state should not. This controls the H3 truncation finding for short-input artefacts.
+    """
+    from ..collect import decode_index
+
+    model, tok = load_model(settings.model_name, settings.dtype, settings.device)
+    held = get_windows(settings, tok)["heldout"]
+    stats = load_stats(settings)["heldout"]["neurons"]
+    ctx = held.tokens.shape[1] - 1
+    out = {}
+    for p in load_json(settings.results_path() / "screen.json")["summary"]:
+        L, i, s = p["layer"], p["neuron"], p["sign"]
+        idx = (stats["top_idx"] if s > 0 else stats["bot_idx"])[L, :, i].numpy()
+        rows, pos = decode_index(idx, ctx)
+        keep = np.unique(rows, return_index=True)[1][:N_TRUNC]  # one firing per window
+        out[p["key"]] = {"layer": L, "concept": p["concept"],
+                         "ratio": context_truncation(model, held, rows[keep], pos[keep], L, i)}
+        log.info("truncation %s (L%d): %s", p["key"], L, {k: round(v, 2) for k, v in out[p["key"]]["ratio"].items()})
+    save_json(out, settings.results_path() / "truncation_survey.json")
+    del model
+    free_gpu()

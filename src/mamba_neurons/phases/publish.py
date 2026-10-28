@@ -46,6 +46,8 @@ def phase_plots(settings) -> None:
         mech = load_json(res / "h3_mechanism.json")
         plots.fig_h3(mech, out / "h3_ablation.png")
         plots.fig_truncation(mech, out / "context_truncation.png")
+    if have("truncation_survey"):
+        plots.fig_truncation_survey(load_json(res / "truncation_survey.json"), out / "truncation_survey.png")
     log.info("figures in %s: %s", out, sorted(p.name for p in out.glob("*.png")))
 
 

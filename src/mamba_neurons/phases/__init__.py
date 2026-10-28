@@ -6,7 +6,7 @@ only one model occupies the 8 GB GPU at a time.
 
 from .atlas import phase_benchmark, phase_collect, phase_domains, phase_examples, phase_select, phase_vocab
 from .interp import phase_h1, phase_label
-from .mechanism import phase_mechanism
+from .mechanism import phase_mechanism, phase_truncation_survey
 from .publish import phase_export, phase_hf, phase_plots
 from .steering import (phase_confirm, phase_confirm_h2b, phase_confirm_h2b_judge, phase_confirm_judge, phase_screen,
                        phase_screen_judge, phase_screen_low, phase_screen_low_judge)
@@ -29,6 +29,7 @@ PHASES = {
     "confirm_h2b": phase_confirm_h2b,  # only after H2b is pre-registered
     "confirm_h2b_judge": phase_confirm_h2b_judge,  # Ollama
     "mechanism": phase_mechanism,
+    "truncation_survey": phase_truncation_survey,  # post hoc
     "export": phase_export,
     "plots": phase_plots,
     "hf": phase_hf,  # uploads to the Hugging Face Hub
