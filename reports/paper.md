@@ -187,7 +187,7 @@ Results for the three H2 poles (Table 3):
 - **Layers 30–39:** 0.18.
 - **Layers 40–47:** 0.24.
 
-The layer-27–32 prediction neurons are the most long-range: only 41–70% of their activation is recovered with 32 tokens. In Mamba-1.4B, then, mid-to-late neurons integrate context through the recurrent state rather than through the 4-token convolution. This is a property that transformer MLP neurons, which read an attention-mixed residual stream, do not expose in the same way.
+The layer-27–32 prediction neurons are the most long-range: only 41–70% of their activation is recovered with 32 tokens. In Mamba-1.4B, then, mid-to-late neurons integrate context through the recurrent state rather than through the 4-token convolution. We did not test whether transformer MLP neurons at comparable depth show a similar context dependence.
 
 ![**Figure 3.** Fraction of a neuron's activation retained with only the last k tokens of context (k = 4 is Mamba's convolution window), for 39 clean candidate poles, by layer.](../results/mamba-1.4b-hf/figures/truncation_survey.png)
 
