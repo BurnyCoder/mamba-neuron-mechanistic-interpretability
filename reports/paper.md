@@ -165,13 +165,52 @@ SURVEY_RESULT_PLACEHOLDER
 DISCUSSION_PLACEHOLDER
 
 ## 6 Limitations
-LIMITATIONS_PLACEHOLDER
+- **Labeller and judge.** All labels, detection decisions and steering ratings come from a local 9B model (qwen3.5:9b).
+  - Its detection decisions agree only moderately with careful rating (κ = 0.55).
+  - Its fluency ratings are systematically harsh and only fairly reliable (κ = 0.34), although its concept ratings are good (κ = 0.79).
+  - The "manual" reference ratings were produced by Claude Code, not by human annotators.
+  - H1's null result may therefore reflect the instrument more than the network.
+- **Scale and data.** One model (Mamba-1.4B), one corpus (2.32M + 0.65M Pile tokens, 128-token windows) and one seed for data and sampling. 128-token windows understate any long-range neuron behaviour beyond 128 tokens.
+- **Doses.** The pre-registered clamp doses copied the SAE-clamping convention (multiples of the maximum), which is badly suited to neurons with kurtosis in the hundreds to tens of thousands. The working low-dose regime was found post hoc on the screen prompts and then confirmed on fresh prompts (H2b), not anticipated.
+- **Steering metrics.** For token-prediction neurons the steering concept ("the word 'as'") is narrow, and concept presence can be judged high for degenerate repetition. We therefore report distinct-2 and NLL alongside the judge. NLL under the unsteered model is a weak fluency proxy for repetitive text.
+- **Baselines.** DiffMean vectors come from held-out documents that may share documents with the held-out prompt pools. If anything, this favours the baseline.
+- **Necessity and mechanism.** H3 p-values are uncorrected per pole (two of three reach the minimum 1/21). Context truncation feeds inputs that begin right after a separator, which is itself unusual context. The post-hoc survey across depths is meant to control for this.
+- **Compute.** Without the `mamba_ssm` CUDA kernels on Windows, the reference torch scan runs at about 1k tok/s, which limited corpus size and the number of confirmation conditions.
 
 ## 7 Conclusion
 CONCLUSION_PLACEHOLDER
 
 ## References
-REFERENCES_PLACEHOLDER
+- Ali, Zimerman & Wolf (2024). The Hidden Attention of Mamba Models. [arXiv:2403.01590](https://arxiv.org/abs/2403.01590)
+- Bills et al. (2023). Language models can explain neurons in language models. [OpenAI](https://openaipublic.blob.core.windows.net/neuron-explainer/paper/index.html)
+- Cammarata (2026). Neural Networks Are Already Clean. [Goodfire](https://already-clean.goodfire.com/)
+- Choi et al. (2024). Scaling Automatic Neuron Description. [Transluce](https://transluce.org/neuron-descriptions)
+- Elhage et al. (2022). Toy Models of Superposition. [Transformer Circuits](https://transformer-circuits.pub/2022/toy_model/index.html)
+- Ensign & Garriga-Alonso (2024). Investigating the Indirect Object Identification circuit in Mamba. [arXiv:2407.14008](https://arxiv.org/abs/2407.14008)
+- Gao et al. (2020). The Pile: An 800GB Dataset of Diverse Text for Language Modeling. [arXiv:2101.00027](https://arxiv.org/abs/2101.00027)
+- Geva et al. (2021). Transformer Feed-Forward Layers Are Key-Value Memories. [arXiv:2012.14913](https://arxiv.org/abs/2012.14913)
+- Geva et al. (2022). Transformer Feed-Forward Layers Build Predictions by Promoting Concepts in the Vocabulary Space. [arXiv:2203.14680](https://arxiv.org/abs/2203.14680)
+- Gu & Dao (2023). Mamba: Linear-Time Sequence Modeling with Selective State Spaces. [arXiv:2312.00752](https://arxiv.org/abs/2312.00752)
+- Gurnee et al. (2023). Finding Neurons in a Haystack: Case Studies with Sparse Probing. [arXiv:2305.01610](https://arxiv.org/abs/2305.01610)
+- Gurnee et al. (2024). Universal Neurons in GPT2 Language Models. [arXiv:2401.12181](https://arxiv.org/abs/2401.12181)
+- Landis & Koch (1977). The Measurement of Observer Agreement for Categorical Data. [Biometrics](https://doi.org/10.2307/2529310)
+- Liu (2026). Leverage Is Not Reach: A Control-Window Law for Single-Neuron Steering in Language Models. [arXiv:2606.19831](https://arxiv.org/abs/2606.19831)
+- Lones (2021). How to avoid machine learning pitfalls. [arXiv:2108.02497](https://arxiv.org/abs/2108.02497)
+- McGrath et al. (2023). The Hydra Effect: Emergent Self-repair in Language Model Computations. [arXiv:2307.15771](https://arxiv.org/abs/2307.15771)
+- Meng et al. (2022). Locating and Editing Factual Associations in GPT. [arXiv:2202.05262](https://arxiv.org/abs/2202.05262)
+- Paulo et al. (2024). Automatically Interpreting Millions of Features in Large Language Models. [arXiv:2410.13928](https://arxiv.org/abs/2410.13928)
+- Phipson & Smyth (2010). Permutation P-values Should Never Be Zero. [SAGMB](https://doi.org/10.2202/1544-6115.1585)
+- Pitorro & Treviso (2025). LaTIM: Measuring Latent Token-to-Token Interactions in Mamba Models. [arXiv:2502.15612](https://arxiv.org/abs/2502.15612)
+- Rimsky et al. (2024). Steering Llama 2 via Contrastive Activation Addition. [arXiv:2312.06681](https://arxiv.org/abs/2312.06681)
+- Sharma, Atkinson & Bau (2024). Locating and Editing Factual Associations in Mamba. [arXiv:2404.03646](https://arxiv.org/abs/2404.03646)
+- Shazeer (2020). GLU Variants Improve Transformer. [arXiv:2002.05202](https://arxiv.org/abs/2002.05202)
+- Sunku Mohan et al. (2026). Interpreting and Steering State-Space Models via Activation Subspace Bottlenecks. [arXiv:2602.22719](https://arxiv.org/abs/2602.22719)
+- Takahashi et al. (2025). TopK Language Models. [arXiv:2506.21468](https://arxiv.org/abs/2506.21468)
+- Templeton et al. (2024). Scaling Monosemanticity. [Transformer Circuits](https://transformer-circuits.pub/2024/scaling-monosemanticity/)
+- Turner et al. (2023). Steering Language Models With Activation Engineering. [arXiv:2308.10248](https://arxiv.org/abs/2308.10248)
+- Voita, Ferrando & Nalmpantis (2024). Neurons in Large Language Models: Dead, N-gram, Positional. [arXiv:2309.04827](https://arxiv.org/abs/2309.04827)
+- Wang et al. (2025). Towards Universality: Studying Mechanistic Similarity Across Language Model Architectures. [arXiv:2410.06672](https://arxiv.org/abs/2410.06672)
+- Wu et al. (2025). AxBench: Steering LLMs? Even Simple Baselines Outperform Sparse Autoencoders. [arXiv:2501.17148](https://arxiv.org/abs/2501.17148)
 
 ## Appendix A: pre-registration amendments
 APPENDIX_PLACEHOLDER
