@@ -1,0 +1,25 @@
+# Python / uv
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.venv/
+.pytest_cache/
+
+# Secrets and local config (copy .env.example -> .env)
+.env
+
+# Large run artefacts (activation caches, generations) live in OUTPUT_DIR, never in git
+outputs/
+*.pt
+*.safetensors
+
+# Raw run logs are large; curated logs are copied into reports/logs/
+logs/
+
+# Paper build intermediates
+reports/*.aux
+reports/*.log
+reports/*.tex
