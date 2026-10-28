@@ -9,10 +9,11 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&l
 const fmt = (x, d = 2) => (x === null || x === undefined || Number.isNaN(x) ? "–" : Number(x).toFixed(d));
 let INDEX = null;
 
-// Token heatmap: background alpha = signed activation / signed peak, colour by pole.
-function heat(ex, sign) {
+// Token heatmap: background alpha = signed activation / reference, colour by pole. The reference is the snippet's own
+// peak for top firings and the pole's strongest discovery firing for random snippets (so quiet text stays pale).
+function heat(ex, sign, ref) {
   const acts = ex.acts.map((a) => a * sign);
-  const peak = Math.max(1e-9, acts[ex.peak]);
+  const peak = Math.max(1e-9, ref === undefined ? acts[ex.peak] : ref);
   const rgb = sign > 0 ? "var(--pos)" : "var(--neg)";
   return ex.tokens.map((t, i) => {
     const a = Math.max(0, Math.min(1, acts[i] / peak));
@@ -52,6 +53,7 @@ function renderList() {
   const rows = INDEX.poles.filter((p) => {
     if (group === "steer" && !p.steering) return false;
     if (group === "candidate" && p.group !== "candidate") return false;
+    if (group === "domain" && p.group !== "domain") return false;
     if (group === "audit" && p.group !== "audit") return false;
     if (p.ba < minba) return false;
     if (lm) return p.layer === +lm[1] && p.index === +lm[2];
@@ -118,6 +120,7 @@ async function select(key, push) {
   const vocab = d.vocab ? `<div class="grid2"><div><h4>Writes up (promoted tokens)</h4><div class="chips">${d.vocab.promoted.map(([t]) => `<span>${esc(t)}</span>`).join("")}</div></div>
     <div><h4>Writes down (suppressed tokens)</h4><div class="chips">${d.vocab.suppressed.map(([t]) => `<span>${esc(t)}</span>`).join("")}</div></div></div>` : "";
   const det = d.examples.detect_top.concat(d.examples.detect_random);
+  const ref = Math.max(...d.examples.label.map((ex) => ex.acts[ex.peak] * sign));
   $("detail").innerHTML = `<h2>${esc(d.label || "(no label)")}</h2>
     <div class="muted">${esc(d.key)} · ${d.kind === "neuron" ? `layer ${d.layer}, neuron ${d.index}` : `layer ${d.layer}, random direction ${d.index}`} · ${sign > 0 ? "positive" : "negative"} pole · held-out detection accuracy <b>${fmt(d.ba)}</b></div>
     ${stats}${vocab}
@@ -125,7 +128,7 @@ async function select(key, push) {
     <h4>Strongest firings (discovery documents; colour = activation / peak, outlined = peak token)</h4>
     ${d.examples.label.map((ex) => `<div class="snip">${heat(ex, sign)}</div>`).join("")}
     <h4>Held-out detection test: top firings (first ${d.examples.detect_top.length}) and random snippets</h4>
-    ${det.map((ex, i) => `<div class="snip">${i < d.examples.detect_top.length ? "★ " : "· "}${heat(ex, sign)}</div>`).join("")}`;
+    ${det.map((ex, i) => `<div class="snip">${i < d.examples.detect_top.length ? "★ " : "· "}${heat(ex, sign, ref)}</div>`).join("")}`;
   if (d.screen) {
     for (const b of document.querySelectorAll("#levels button")) b.onclick = () => showGens(d, +b.dataset.c);
     showGens(d, d.screen.best_level);
