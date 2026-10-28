@@ -89,21 +89,27 @@ def fig_dose_response(screens: list[dict], keys: list[str], path) -> None:
 
 
 def fig_h2(h2: dict, path) -> None:
-    """Per confirmed pole: harmonic mean (concept, fluency) per condition with 95% cluster-bootstrap CI + random-neuron null."""
+    """Rows = confirmed poles; columns = HM and concept score per condition (mean, 95% cluster-bootstrap CI for HM)
+    with the random-neuron null (gray dots, one per null neuron, same relative clamp)."""
     order = ["unsteered", "prompting", "diffmean", "add", "clamp"]
-    fig, axes = plt.subplots(1, len(h2), figsize=(4.2 * len(h2), 3.2), squeeze=False, sharey=True)
-    for ax, (key, r) in zip(axes[0], h2.items()):
+    fig, axes = plt.subplots(len(h2), 2, figsize=(9, 2.6 * len(h2)), squeeze=False)
+    jitter = np.random.default_rng(0)
+    for row, (key, r) in zip(axes, h2.items()):
         conds = [c for c in order if c in r["conditions"]]
-        for y, c in enumerate(conds):
-            m, (lo, hi) = r["conditions"][c]["hm"], r["conditions"][c]["hm_ci95"]
-            ax.errorbar(m, y, xerr=[[m - lo], [hi - m]], fmt="o", color=BLUE if c == "clamp" else INK, markersize=6, capsize=3)
-        y_null = len(conds)
-        ax.scatter(r["random_null_hm"], np.full(len(r["random_null_hm"]), y_null) + np.random.default_rng(0).uniform(-0.15, 0.15, len(r["random_null_hm"])),
-                   color=GRAY, s=14)
-        ax.set_yticks(range(len(conds) + 1), conds + ["20 random neurons\n(same clamp)"])
-        ax.set_xlim(-0.05, 2.05)
-        ax.set_xlabel("harmonic mean of concept & fluency (0–2)")
-        ax.set_title(f"{key}\n{r['label'][:50]}", fontsize=9)
+        for ax, metric, null in ((row[0], "hm", r["random_null_hm"]), (row[1], "concept", r.get("random_null_concept", []))):
+            for y, c in enumerate(conds):
+                m = r["conditions"][c][metric]
+                if metric == "hm":
+                    lo, hi = r["conditions"][c]["hm_ci95"]
+                    ax.errorbar(m, y, xerr=[[m - lo], [hi - m]], fmt="o", color=BLUE if c == "clamp" else INK, markersize=6, capsize=3)
+                else:
+                    ax.plot(m, y, "o", color=BLUE if c == "clamp" else INK, markersize=6)
+            if null:
+                ax.scatter(null, len(conds) + jitter.uniform(-0.15, 0.15, len(null)), color=GRAY, s=12)
+            ax.set_yticks(range(len(conds) + 1), conds + [f"{len(null)} random neurons"], fontsize=8)
+            ax.set_xlim(-0.05, 2.05)
+            ax.set_xlabel("harmonic mean (concept, fluency)" if metric == "hm" else "concept score", fontsize=9)
+        row[0].set_title(f"{key} · {r['concept'][:45]}", fontsize=9, loc="left")
     _save(fig, path)
 
 

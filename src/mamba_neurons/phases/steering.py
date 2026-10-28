@@ -25,7 +25,7 @@ from .common import free_gpu, get_windows, load_json, load_stats, pole_extreme, 
 log = get_logger(__name__)
 LEVELS = (2, 5, 10, 20)  # clamp multiples of the pole extreme (pre-registered)
 LOW_LEVELS = (0.25, 0.5, 1.0)  # post-hoc gentler doses (amendment 6)
-PROMPT_LEN, N_SCREEN, N_CONFIRM = 16, 10, 50
+PROMPT_LEN, N_SCREEN, N_CONFIRM, POOL = 16, 10, 50, 400
 N_RANDOM, N_RANDOM_PROMPTS = 80, 10  # amendment 5: min empirical p = 1/81, so Holm over 3 poles can reach < 0.05
 JUDGE_CTX = 2048  # judge prompts are < 1k tokens; a small KV cache keeps the 9B judge entirely on an 8 GB GPU
 CLEAN = 0.8
@@ -141,25 +141,25 @@ def phase_screen_low_judge(settings) -> None:
     log.info("low-dose sweep, top 5 by HM gain: %s", [(s["key"], s["concept"], s["best_level"], round(s["hm_gain"], 2)) for s in summary[:5]])
 
 
-def _neutral_prompt_set(model, held, disc, layer, neuron, sign, seed) -> np.ndarray:
-    """50 prompt-set-B openings on which s*a_i stays below its 90th discovery percentile on every token."""
+def _neutral_prompt_set(model, held, disc, layer, neuron, sign, seed, skip: int) -> np.ndarray:
+    """50 openings (from a pool of 400 starting at `skip`) on which s*a_i stays below its 90th discovery percentile."""
     q90 = np.quantile(pole_values(model, disc.tokens[:200], layer, neuron, sign)[:, 1:], 0.9)
-    pool = neutral_prompts(held, 400, PROMPT_LEN, seed, skip=N_SCREEN)  # disjoint from prompt set A
+    pool = neutral_prompts(held, POOL, PROMPT_LEN, seed, skip=skip)  # B: skip=10 (after set A); C: skip=410 (after B)
     ok = pole_values(model, pool, layer, neuron, sign)[:, 1:].max(1) < q90
     log.info("neutral prompts for L%d N%d: %d/%d eligible (q90=%.3f)", layer, neuron, ok.sum(), len(pool), q90)
     return pool[ok][:N_CONFIRM]
 
 
-def phase_confirm(settings) -> None:
-    """Generate all pre-registered confirmation conditions for every planned pole."""
+def _confirm_generate(settings, plan_name: str, out_name: str, skip: int) -> None:
+    """Generate every confirmation condition for each pole of results/<plan_name>.json on a disjoint prompt set."""
     model, tok = load_model(settings.model_name, settings.dtype, settings.device)
     windows = get_windows(settings, tok)
     stats = load_stats(settings)
     rng = np.random.default_rng(settings.seed)
     rows = []
-    for p in load_json(settings.results_path() / "confirm_plan.json"):
+    for p in load_json(settings.results_path() / f"{plan_name}.json"):
         L, i, s, c = p["layer"], p["neuron"], p["sign"], p["best_level"]
-        prompts = _neutral_prompt_set(model, windows["heldout"], windows["discovery"], L, i, s, settings.seed)
+        prompts = _neutral_prompt_set(model, windows["heldout"], windows["discovery"], L, i, s, settings.seed, skip)
         value = s * c * pole_extreme(stats["discovery"], L, i, s)
         budget = residual_budget(model, L, i, value)
         dm = diffmean_vector(model, windows["heldout"], stats["heldout"]["neurons"], L, i, s, settings.seed)
@@ -181,15 +181,25 @@ def phase_confirm(settings) -> None:
                                         {"key": p["key"], "condition": f"random:{int(j)}", "seed": settings.seed})
         log.info("confirm %s: %d generations so far; clamp e.g. %r", p["key"], len(rows),
                  next(r["text"] for r in rows if r["key"] == p["key"] and r["condition"] == "clamp")[:150])
-    save_json(rows, settings.run_dir() / "confirm_generations.json")
+    save_json(rows, settings.run_dir() / f"{out_name}.json")
     del model  # drop the last reference first, otherwise empty_cache cannot release the weights
     free_gpu()
 
 
-def phase_confirm_judge(settings) -> None:
-    """Judge confirmation generations and run the pre-registered H2 tests."""
-    rows = load_json(settings.run_dir() / "confirm_generations.json")
-    plan = {p["key"]: p for p in load_json(settings.results_path() / "confirm_plan.json")}
+def phase_confirm(settings) -> None:
+    """Pre-registered H2 confirmation on prompt set B."""
+    _confirm_generate(settings, "confirm_plan", "confirm_generations", skip=N_SCREEN)
+
+
+def phase_confirm_h2b(settings) -> None:
+    """H2b (pre-registered after the post-hoc low-dose sweep) on prompt set C, disjoint from A and B."""
+    _confirm_generate(settings, "confirm_plan_h2b", "confirm_h2b_generations", skip=N_SCREEN + POOL)
+
+
+def _confirm_judge(settings, plan_name: str, gen_name: str, out_name: str) -> None:
+    """Judge confirmation generations and run the pre-registered tests (H2 rules)."""
+    rows = load_json(settings.run_dir() / f"{gen_name}.json")
+    plan = {p["key"]: p for p in load_json(settings.results_path() / f"{plan_name}.json")}
     llm = LocalLLM(settings.ollama_host, settings.llm_model, num_ctx=JUDGE_CTX)
     _judge(llm, rows, lambda r: plan[r["key"]]["concept"])
     llm.unload()
@@ -207,18 +217,33 @@ def phase_confirm_judge(settings) -> None:
             clusters = np.array([r["prompt_idx"] for r in rs])
             cond[name] = {m: float(np.mean([r[m] for r in rs])) for m in ("concept", "fluency", "hm", "nll", "distinct2")}
             cond[name]["hm_ci95"] = list(cluster_bootstrap_mean(hm, clusters, seed=settings.seed)[1:])
-        null = [float(np.mean([r["hm"] for r in rs])) for name, rs in by.items() if name.startswith("random:")]
+        nulls = [rs for name, rs in by.items() if name.startswith("random:")]
+        null = [float(np.mean([r["hm"] for r in rs])) for rs in nulls]
         clamp, base = by["clamp"], by["unsteered"]
         order = lambda rs: sorted(rs, key=lambda r: (r["seed"], r["prompt_idx"]))  # pair identical prompt + seed
         diff = cluster_bootstrap_diff([r["hm"] for r in order(clamp)], [r["hm"] for r in order(base)],
                                       [r["prompt_idx"] for r in order(clamp)], seed=settings.seed)
         p_null = empirical_p(cond["clamp"]["hm"], null)
         pvals.append(p_null)
-        results[key] = {"label": plan[key]["label"], "concept": plan[key]["concept"], "conditions": cond, "random_null_hm": null,
+        results[key] = {"label": plan[key]["label"], "concept": plan[key]["concept"], "level": plan[key]["best_level"],
+                        "conditions": cond, "random_null_hm": null,
+                        "random_null_concept": [float(np.mean([r["concept"] for r in rs])) for rs in nulls],
+                        "random_null_fluency": [float(np.mean([r["fluency"] for r in rs])) for rs in nulls],
+                        "p_concept_vs_random_null": empirical_p(cond["clamp"]["concept"], [float(np.mean([r["concept"] for r in rs])) for rs in nulls]),
                         "clamp_minus_unsteered": {"diff": diff[0], "ci95": [diff[1], diff[2]]}, "p_vs_random_null": p_null}
     for key, p_adj in zip(results, holm(pvals)):
         r = results[key]
         r["p_holm"] = p_adj
         r["h2_supported"] = bool(r["clamp_minus_unsteered"]["ci95"][0] > 0 and p_adj < 0.05 and r["conditions"]["clamp"]["fluency"] >= 1.0)
-    save_json({"results": results, "generations": rows}, settings.results_path() / "h2.json")
-    log.info("H2: %s", {k: (v["clamp_minus_unsteered"], v["p_holm"], v["h2_supported"]) for k, v in results.items()})
+    save_json({"results": results, "generations": rows}, settings.results_path() / f"{out_name}.json")
+    log.info("%s: %s", out_name, {k: (v["clamp_minus_unsteered"], v["p_holm"], v["h2_supported"]) for k, v in results.items()})
+
+
+def phase_confirm_judge(settings) -> None:
+    """Judge the H2 confirmation."""
+    _confirm_judge(settings, "confirm_plan", "confirm_generations", "h2")
+
+
+def phase_confirm_h2b_judge(settings) -> None:
+    """Judge the H2b confirmation."""
+    _confirm_judge(settings, "confirm_plan_h2b", "confirm_h2b_generations", "h2b")
