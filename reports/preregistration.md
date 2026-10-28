@@ -75,3 +75,13 @@ The candidate score is the mean of the three ranks. The top 60 poles go forward,
   - **Steering concept.** Each screened pole now gets an output-side *steering concept*, written once by the same LLM from its label and promoted tokens before any steered text is judged (`judge.steering_concept`, e.g. "mentions of the word 'all'"). This concept is what the AxBench judge scores, and it is also the prefix of the prompting baseline.
   - **Judge settings.** The judge system prompt asks for a one-sentence explanation, and judge calls use a 2,048-token context. Together these cut judge time from about 20 s to about 1.2 s per call. The AxBench rating templates are unchanged.
 - **2026-10-28, amendment 5 (before any confirmation data existed; found by reviewing the analysis code, not from data).** With 20 random-neuron nulls the smallest empirical p is 1/21 = 0.048. Holm correction over 2–3 confirmatory poles then gives an adjusted p ≥ 0.095, so H2 could never be supported. The random-neuron null is changed to **80 random same-layer neurons × 10 prompts** (the first 10 of the 50 confirmation prompts, seed 0). The smallest empirical p becomes 1/81 = 0.012, and Holm × 3 = 0.037. Each null neuron's mean is noisier (10 generations) than the target's (100). This widens the null distribution and makes the test conservative. The H3 ablation null stays at 20 neurons, as pre-registered, and its p-values are reported uncorrected per pole.
+- **2026-10-28, amendment 6: confirmation plan (written by `screen_judge` and frozen here before `confirm` ran).** The three poles with the largest mean HM gain over unsteered on prompt set A:
+
+  | Pole | Label | Steering concept | Clamp | HM gain |
+  |---|---|---|---|---|
+  | `neuron:L30:N2121:+` | "fires on tokens immediately preceding the word 'as'" | "the word 'as'" | 2× | 0.40 |
+  | `neuron:L28:N953:+` | "fires on tokens immediately preceding an opening square bracket" | "opening square brackets" | 5× | 0.30 |
+  | `neuron:L32:N2669:+` | "fires when the word 'set' appears in code or text" | "mentions of the word 'set'" | 2× | 0.27 |
+
+  The screen showed that every pre-registered dose (≥ 2× the pole maximum) drives judged fluency to about 0 for nearly all poles; unsteered text gets 0.6. The H2 fluency criterion (≥ 1.0) is therefore expected to fail. The confirmation is run exactly as registered anyway.
+- **Planned post-hoc exploration (labelled as such everywhere).** A low-dose sweep at 0.25×, 0.5× and 1× the pole maximum, on prompt set A with the same steering concepts. If it reveals a fluent regime, a new hypothesis **H2b** will be pre-registered here *before* it is tested on a fresh prompt set C, disjoint from A and B.
