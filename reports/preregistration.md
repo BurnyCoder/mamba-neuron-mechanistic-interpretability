@@ -85,3 +85,20 @@ The candidate score is the mean of the three ranks. The top 60 poles go forward,
 
   The screen showed that every pre-registered dose (≥ 2× the pole maximum) drives judged fluency to about 0 for nearly all poles; unsteered text gets 0.6. The H2 fluency criterion (≥ 1.0) is therefore expected to fail. The confirmation is run exactly as registered anyway.
 - **Planned post-hoc exploration (labelled as such everywhere).** A low-dose sweep at 0.25×, 0.5× and 1× the pole maximum, on prompt set A with the same steering concepts. If it reveals a fluent regime, a new hypothesis **H2b** will be pre-registered here *before* it is tested on a fresh prompt set C, disjoint from A and B.
+- **2026-10-28, amendment 7: H2b, pre-registered after the post-hoc low-dose sweep and before any prompt-set-C data existed.** The sweep on prompt set A showed a regime where concept injection keeps the text fluent: 0.25× gives concept 0.52, distinct-2 0.83 and HM 0.092, against 0.08, 0.91 and 0.050 unsteered. Steering judge validation showed the fluency judge to be unreliable and harsh (κ = 0.34; it scores fluent unsteered text at 0.60).
+  - **Poles and doses.** The three poles with the largest low-dose HM gain, at their best dose (`results/mamba-1.4b-hf/confirm_plan_h2b.json`):
+
+    | Pole | Steering concept | Dose |
+    |---|---|---|
+    | `neuron:L30:N815:+` | "the word 'from'" | 0.5× |
+    | `neuron:L30:N2121:+` | "the word 'as'" | 0.5× |
+    | `neuron:L37:N71:+` | "mentions of the word 'first'" | 0.25× |
+
+  - **Prompts.** Prompt set C: 50 held-out document openings from a pool of 400 that starts *after* the pool of prompt set B (`skip = 410`). The same neutrality filter applies, with 2 seeds.
+  - **Conditions.** Identical to H2: unsteered, clamp, add, DiffMean, prompting, and the 80-neuron × 10-prompt random null at the same relative dose.
+  - **H2b is supported for a pole if all of the following hold:**
+    1. The paired clamp − unsteered HM difference has a 95% prompt-cluster-bootstrap CI above 0.
+    2. The Holm-adjusted (over the 3 poles) empirical p against the random-neuron null is < 0.05.
+    3. Fluency is non-inferior: clamp distinct-2 ≥ 0.9 × unsteered distinct-2 **and** clamp judged fluency ≥ unsteered judged fluency − 0.2.
+  - **Falsified if** no pole meets all three. Secondary metrics: concept alone against the null, P(concept ≥ 1), and NLL.
+  - **H2 itself is unchanged and is judged by its original absolute fluency rule.** The non-inferiority verdict is also stored for H2 and is reported as post hoc.

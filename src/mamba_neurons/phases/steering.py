@@ -196,8 +196,12 @@ def phase_confirm_h2b(settings) -> None:
     _confirm_generate(settings, "confirm_plan_h2b", "confirm_h2b_generations", skip=N_SCREEN + POOL)
 
 
-def _confirm_judge(settings, plan_name: str, gen_name: str, out_name: str) -> None:
-    """Judge confirmation generations and run the pre-registered tests (H2 rules)."""
+def _confirm_judge(settings, plan_name: str, gen_name: str, out_name: str, noninferiority: bool) -> None:
+    """Judge confirmation generations and run the pre-registered tests.
+
+    Fluency criterion: H2 (absolute) requires judged fluency >= 1.0; H2b (amendment 7, non-inferiority) requires
+    distinct-2 >= 0.9 x unsteered and judged fluency >= unsteered - 0.2. Both verdicts are always stored.
+    """
     rows = load_json(settings.run_dir() / f"{gen_name}.json")
     plan = {p["key"]: p for p in load_json(settings.results_path() / f"{plan_name}.json")}
     llm = LocalLLM(settings.ollama_host, settings.llm_model, num_ctx=JUDGE_CTX)
@@ -234,16 +238,20 @@ def _confirm_judge(settings, plan_name: str, gen_name: str, out_name: str) -> No
     for key, p_adj in zip(results, holm(pvals)):
         r = results[key]
         r["p_holm"] = p_adj
-        r["h2_supported"] = bool(r["clamp_minus_unsteered"]["ci95"][0] > 0 and p_adj < 0.05 and r["conditions"]["clamp"]["fluency"] >= 1.0)
+        c, u = r["conditions"]["clamp"], r["conditions"]["unsteered"]
+        effect = bool(r["clamp_minus_unsteered"]["ci95"][0] > 0 and p_adj < 0.05)
+        r["verdict_absolute_fluency"] = bool(effect and c["fluency"] >= 1.0)
+        r["verdict_noninferior_fluency"] = bool(effect and c["distinct2"] >= 0.9 * u["distinct2"] and c["fluency"] >= u["fluency"] - 0.2)
+        r["h2_supported"] = r["verdict_noninferior_fluency"] if noninferiority else r["verdict_absolute_fluency"]
     save_json({"results": results, "generations": rows}, settings.results_path() / f"{out_name}.json")
     log.info("%s: %s", out_name, {k: (v["clamp_minus_unsteered"], v["p_holm"], v["h2_supported"]) for k, v in results.items()})
 
 
 def phase_confirm_judge(settings) -> None:
     """Judge the H2 confirmation."""
-    _confirm_judge(settings, "confirm_plan", "confirm_generations", "h2")
+    _confirm_judge(settings, "confirm_plan", "confirm_generations", "h2", noninferiority=False)
 
 
 def phase_confirm_h2b_judge(settings) -> None:
     """Judge the H2b confirmation."""
-    _confirm_judge(settings, "confirm_plan_h2b", "confirm_h2b_generations", "h2b")
+    _confirm_judge(settings, "confirm_plan_h2b", "confirm_h2b_generations", "h2b", noninferiority=True)
