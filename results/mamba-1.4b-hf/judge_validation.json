@@ -1,0 +1,8 @@
+{
+ "n": 40,
+ "kappa_manual_vs_llm": 0.5483870967741935,
+ "accuracy_manual_vs_truth": 0.775,
+ "accuracy_llm_vs_truth": 0.7,
+ "agreement_manual_llm": 0.825,
+ "judge_accepted": false
+}

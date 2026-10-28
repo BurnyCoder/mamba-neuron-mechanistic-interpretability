@@ -64,3 +64,13 @@ def test_hooks_are_removed_on_exit(small_model):
     with Hooks(model).edit_neurons(LAYER, lambda a: a):
         assert len(site._forward_pre_hooks) == 1
     assert len(site._forward_pre_hooks) == 0
+
+
+def test_direction_logit_effect_matches_neuron_projection(small_model):
+    from mamba_neurons.vocab import direction_logit_effect, logit_effects
+
+    model, _ = small_model
+    one_hot = torch.zeros(neuron_site(model, LAYER).in_features)
+    one_hot[NEURON] = 1.0
+    torch.testing.assert_close(direction_logit_effect(model, LAYER, one_hot),
+                               logit_effects(model, LAYER, torch.tensor([NEURON], device=model.device))[:, 0])

@@ -25,10 +25,6 @@ def _get(name: str, default: str) -> str:
     return os.environ.get(name, default)  # dict lookup with fallback
 
 
-def _bool(name: str, default: bool) -> bool:
-    """Parse common truthy spellings ("1", "true", "yes") of env var `name`."""
-    return _get(name, str(default)).strip().lower() in {"1", "true", "yes", "on"}  # case-insensitive match
-
 
 @dataclass(frozen=True)
 class Settings:
@@ -38,7 +34,6 @@ class Settings:
     test_model_name: str  # small model used by tests / smoke runs
     dtype: str  # torch dtype name for weights ("bfloat16", "float32")
     device: str  # "cuda" or "cpu"
-    use_mambapy: bool  # parallel-scan implementation switch (HF MambaConfig.use_mambapy)
     dataset_name: str  # HF dataset id of the text corpus
     heldout_fraction: float  # fraction of *documents* reserved for held-out evaluation
     ctx_len: int  # tokens per analysis window (excluding the separator token)
@@ -89,19 +84,18 @@ def load_settings() -> Settings:
         test_model_name=_get("TEST_MODEL_NAME", "state-spaces/mamba-130m-hf"),
         dtype=_get("DTYPE", "bfloat16"),
         device=_get("DEVICE", "cuda"),
-        use_mambapy=_bool("USE_MAMBAPY", False),
         dataset_name=_get("DATASET_NAME", "NeelNanda/pile-10k"),
         heldout_fraction=float(_get("HELDOUT_FRACTION", "0.3")),
         ctx_len=int(_get("CTX_LEN", "128")),
         max_windows_per_doc=int(_get("MAX_WINDOWS_PER_DOC", "4")),
         max_discovery_tokens=int(_get("MAX_DISCOVERY_TOKENS", "3000000")),
-        max_heldout_tokens=int(_get("MAX_HELDOUT_TOKENS", "1300000")),
-        batch_size=int(_get("BATCH_SIZE", "16")),
-        top_k=int(_get("TOP_K", "20")),
+        max_heldout_tokens=int(_get("MAX_HELDOUT_TOKENS", "650000")),
+        batch_size=int(_get("BATCH_SIZE", "12")),
+        top_k=int(_get("TOP_K", "40")),
         n_random_directions_per_layer=int(_get("N_RANDOM_DIRECTIONS_PER_LAYER", "2")),
         seed=int(_get("SEED", "0")),
         ollama_host=_get("OLLAMA_HOST", "http://localhost:11434"),
-        llm_model=_get("LLM_MODEL", "qwen3.5:4b"),
+        llm_model=_get("LLM_MODEL", "qwen3.5:9b"),
         output_dir=Path(_get("OUTPUT_DIR", "outputs")),
         results_dir=Path(_get("RESULTS_DIR", "results")),
         log_dir=Path(_get("LOG_DIR", "logs")),

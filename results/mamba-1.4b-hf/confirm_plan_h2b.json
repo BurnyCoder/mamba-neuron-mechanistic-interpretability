@@ -1,0 +1,32 @@
+[
+ {
+  "key": "neuron:L30:N815:+",
+  "layer": 30,
+  "neuron": 815,
+  "sign": 1,
+  "label": "The neuron fires on tokens immediately preceding the word 'from'.",
+  "concept": "the word 'from'",
+  "best_level": 0.5,
+  "hm_gain": 0.6666666666666666
+ },
+ {
+  "key": "neuron:L30:N2121:+",
+  "layer": 30,
+  "neuron": 2121,
+  "sign": 1,
+  "label": "The neuron fires on tokens immediately preceding the word 'as'.",
+  "concept": "the word 'as'",
+  "best_level": 0.5,
+  "hm_gain": 0.5999999999999999
+ },
+ {
+  "key": "neuron:L37:N71:+",
+  "layer": 37,
+  "neuron": 71,
+  "sign": 1,
+  "label": "The neuron fires when the phrase 'for the first time' or 'in the first place' appears.",
+  "concept": "mentions of the word 'first'",
+  "best_level": 0.25,
+  "hm_gain": 0.5333333333333333
+ }
+]

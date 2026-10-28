@@ -81,6 +81,30 @@ def build_splits(tokenizer, settings) -> dict[str, Windows]:
     }
 
 
+def decode_tokens(tokenizer, ids) -> list[str]:
+    """Per-token strings whose concatenation equals the decoded text, without splitting multi-byte characters.
+
+    Byte-level BPE (GPT-2 / GPT-NeoX) can cut one UTF-8 character across tokens, so `decode([id])` yields U+FFFD.
+    We map each token back to its raw bytes (inverse of `bytes_to_unicode`, as in GPT-2's encoder.py,
+    https://github.com/openai/gpt-2/blob/master/src/encoder.py) and feed them to an incremental UTF-8 decoder
+    (https://docs.python.org/3/library/codecs.html#codecs.getincrementaldecoder), which assigns each character to the
+    token that completes it.
+    """
+    import codecs
+
+    from transformers.convert_slow_tokenizer import bytes_to_unicode
+
+    byte_of = {u: b for b, u in bytes_to_unicode().items()}
+    dec = codecs.getincrementaldecoder("utf-8")(errors="replace")
+    out = []
+    for tok in tokenizer.convert_ids_to_tokens([int(i) for i in ids]):
+        raw = bytes(byte_of[c] for c in tok) if all(c in byte_of for c in tok) else tok.encode("utf-8")  # special tokens
+        out.append(dec.decode(raw))
+    if out:
+        out[-1] += dec.decode(b"", final=True)  # flush an unfinished trailing character
+    return out
+
+
 def save_windows(windows: Windows, path) -> None:
     """Persist windows as compressed npz (sources stored as a string array)."""
     np.savez_compressed(path, tokens=windows.tokens, doc=windows.doc, start=windows.start, sources=np.asarray(windows.sources))

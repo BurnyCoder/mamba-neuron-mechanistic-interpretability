@@ -1,0 +1,6 @@
+{
+ "tokens_per_s": 785.6415632611818,
+ "peak_mem_gb": 3.914025984,
+ "next_token_loss_nats": 3.0456271171569824,
+ "batch_size": 8
+}
