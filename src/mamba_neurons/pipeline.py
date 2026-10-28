@@ -26,7 +26,8 @@ def main(argv=None) -> None:
     settings = load_settings()
     if args.model:
         settings = settings.with_overrides(model_name=args.model)
-    names = list(phases.PHASES) if args.phases == "all" else [p.strip() for p in args.phases.split(",")]
+    # "all" runs every analysis phase but never the outward-facing Hugging Face upload (ask for "hf" explicitly)
+    names = [p for p in phases.PHASES if p != "hf"] if args.phases == "all" else [p.strip() for p in args.phases.split(",")]
     setup_logging("-".join(names) if len(names) < 4 else "all", settings.log_dir)
     log.info("Settings: %s", settings.to_dict())
     for name in names:

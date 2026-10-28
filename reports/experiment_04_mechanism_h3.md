@@ -1,6 +1,6 @@
 # Experiment 4: necessity and mechanism of the confirmed neurons (H3 and exploratory)
 
-**Status:** H3 and mechanism done for the three H2 poles; the post-hoc truncation survey is queued.
+**Status:** done.
 **Code:** `mechanism.py`, `phases/mechanism.py`.
 **Results:** `results/mamba-1.4b-hf/h3_mechanism.json`, `truncation_survey.json`.
 
@@ -35,4 +35,18 @@ H3 p-values are uncorrected per pole, as pre-registered; under Holm over 3 poles
 4. **Single-position patching is weak.** Writing the neuron's typical firing value at one random position raises its promoted tokens' log-probability by 0.13–1.0 nats. That is within the random-neuron range (p 0.33–0.86): a single typical firing does not move the output much beyond what an arbitrary neuron does. The large steering effects in experiment 3 come from sustained, much stronger activation at every position.
 
 ## Truncation survey (post hoc)
-SURVEY_PLACEHOLDER
+Context-truncation curves for all 39 screened poles. Each pole uses its first 50 held-out top firings, one per window. Values are the activation with only the last k tokens, as a fraction of the full-window activation.
+
+| Layers | Poles | Median ratio, k = 4 (conv window) | Median ratio, k = 16 |
+|---|---|---|---|
+| 0–1 | 4 | **0.92** | 1.03 |
+| 20–29 | 8 | 0.10 | 0.66 |
+| 30–39 | 19 | 0.18 | 0.74 |
+| 40–47 | 8 | 0.24 | 0.78 |
+
+- **The control works.** Early-layer token detectors keep their activation with only 4 tokens of context. L0 N1037 ("periods before www domain names") and L0 N84 both stay at 1.00–1.10, and L1 N1296 at 0.84. So the near-zero ratios of later neurons are not an artefact of short inputs that start after a separator.
+- **From layer 20 on, neurons need more than the convolution window.** The prediction neurons of layers 27–32 (`as`, `from`, `set`, `per`, `[`, digits) are the most long-range: 0–0.01 at k = 4, 0.18–0.41 at k = 16, and 0.41–0.70 at k = 32. Their firing relies on context the recurrent SSM state carries across dozens of tokens.
+- **Later layers (34–45) recover faster** (k = 16: 0.6–0.9).
+- **Caveat.** This is correlational with respect to the mechanism: we did not ablate the SSM state itself.
+
+![Truncation survey](../results/mamba-1.4b-hf/figures/truncation_survey.png)
