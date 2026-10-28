@@ -30,10 +30,11 @@ function summaryCards(idx) {
       <div class="big">${fmt(100 * n.clean_rate, 0)}% <span class="muted" style="font-size:1rem">neurons</span> vs ${fmt(100 * d.clean_rate, 0)}% <span class="muted" style="font-size:1rem">random directions</span></div>
       <div class="muted">Δ = ${fmt(100 * diff.clean_rate_diff, 1)} pts, 95% CI [${fmt(100 * diff.ci95[0], 1)}, ${fmt(100 * diff.ci95[1], 1)}], Fisher p = ${fmt(diff.fisher_one_sided_p, 4)}</div></div>`);
   }
-  for (const [key, r] of Object.entries(idx.h2 || {})) {
+  const confirmed = Object.entries(idx.h2 || {}).map(([k, r]) => ["H2", k, r]).concat(Object.entries(idx.h2b || {}).map(([k, r]) => ["H2b", k, r]));
+  for (const [tag, key, r] of confirmed) {
     const c = r.conditions;
-    cards.push(`<div class="card"><h3>H2 · steering <a href="?key=${encodeURIComponent(key)}">${esc(key)}</a></h3>
-      <div>${esc(r.label)}</div>
+    cards.push(`<div class="card"><h3>${tag} · steering at ${r.level}× max · <a href="?key=${encodeURIComponent(key)}">${esc(key)}</a></h3>
+      <div>${esc(r.concept)}</div>
       <div class="big">${fmt(c.clamp.hm)} <span class="muted" style="font-size:1rem">clamped vs ${fmt(c.unsteered.hm)} unsteered</span></div>
       <div class="muted">harmonic mean of concept and fluency (0–2) · p vs random neurons (Holm) = ${fmt(r.p_holm, 3)} · ${r.h2_supported ? '<span class="ok">supported</span>' : '<span class="no">not supported</span>'}</div></div>`);
   }
@@ -67,14 +68,14 @@ function renderList() {
 
 function steeringBlock(d) {
   if (!d.screen) return "";
-  const levels = Object.keys(d.screen.levels).map(Number).sort((a, b) => a - b);
-  const rows = levels.map((c) => {
-    const s = d.screen.levels[c];
+  const entries = Object.entries(d.screen.levels).sort((a, b) => Number(a[0]) - Number(b[0]));  // keys like "0.25"
+  const rows = entries.map(([k, s]) => {
+    const c = Number(k);
     return `<tr><td>${c === 0 ? "unsteered" : c + "× max"}</td><td>${fmt(s.concept)}</td><td>${fmt(s.fluency)}</td><td>${fmt(s.hm)} <span class="bar" style="width:${40 * s.hm}px"></span></td><td>${fmt(s.nll)}</td></tr>`;
   }).join("");
-  return `<h4>Turn it up: clamp sweep on 10 neutral prompts (exploratory screen)</h4>
+  return `<h4>Turn it up: clamp sweep on 10 neutral prompts (≥2×: pre-registered screen; <2×: post-hoc low-dose sweep) · concept judged: “${esc(d.screen.concept)}”</h4>
     <table><tr><th>clamp</th><th>concept</th><th>fluency</th><th>harmonic mean</th><th>NLL</th></tr>${rows}</table>
-    <div class="levels" id="levels">${levels.map((c) => `<button data-c="${c}">${c === 0 ? "off" : c + "×"}</button>`).join("")}</div>
+    <div class="levels" id="levels">${entries.map(([k]) => `<button data-c="${Number(k)}">${Number(k) === 0 ? "off" : Number(k) + "×"}</button>`).join("")}</div>
     <div id="gens"></div>`;
 }
 
@@ -86,17 +87,23 @@ function showGens(d, c) {
 }
 
 function confirmBlock(d) {
-  if (!d.confirm) return "";
+  return confirmTable(d.confirm, "H2 (pre-registered) on prompt set B") + confirmTable(d.confirm_h2b, "H2b (pre-registered after the dose sweep) on fresh prompt set C");
+}
+
+function confirmTable(conf, title) {
+  if (!conf) return "";
+  const d = { confirm: conf };
   const c = d.confirm.conditions;
   const order = ["unsteered", "clamp", "add", "diffmean", "prompting"];
   const null_ = d.confirm.random_null_hm;
   const rows = order.filter((k) => c[k]).map((k) => `<tr><td>${k}</td><td>${fmt(c[k].hm)} [${fmt(c[k].hm_ci95[0])}, ${fmt(c[k].hm_ci95[1])}]</td><td>${fmt(c[k].concept)}</td><td>${fmt(c[k].fluency)}</td><td>${fmt(c[k].nll)}</td><td>${fmt(c[k].distinct2)}</td></tr>`).join("");
-  return `<h4>Pre-registered confirmation (50 held-out prompts × 2 seeds)</h4>
+  return `<h4>${title}: clamp at ${conf.level}× max, 50 neutral prompts × 2 seeds</h4>
     <table><tr><th>condition</th><th>harmonic mean [95% CI]</th><th>concept</th><th>fluency</th><th>NLL</th><th>distinct-2</th></tr>${rows}
-    <tr><td>20 random neurons, same clamp</td><td>mean ${fmt(null_.reduce((a, b) => a + b, 0) / null_.length)} · max ${fmt(Math.max(...null_))}</td><td colspan="4" class="muted">null distribution</td></tr></table>
+    <tr><td>${null_.length} random neurons, same relative clamp</td><td>mean ${fmt(null_.reduce((a, b) => a + b, 0) / null_.length)} · max ${fmt(Math.max(...null_))}</td><td colspan="4" class="muted">null distribution</td></tr></table>
     <p>Clamp − unsteered = ${fmt(d.confirm.clamp_minus_unsteered.diff)} [${fmt(d.confirm.clamp_minus_unsteered.ci95[0])}, ${fmt(d.confirm.clamp_minus_unsteered.ci95[1])}],
       empirical p vs random = ${fmt(d.confirm.p_vs_random_null, 3)}, Holm p = ${fmt(d.confirm.p_holm, 3)} →
-      ${d.confirm.h2_supported ? '<b class="ok">H2 supported</b>' : '<b class="no">H2 not supported</b>'}</p>`;
+      ${d.confirm.h2_supported ? '<b class="ok">supported</b>' : '<b class="no">not supported</b>'}
+      (absolute-fluency rule: ${d.confirm.verdict_absolute_fluency ? "pass" : "fail"}; non-inferior-fluency rule: ${d.confirm.verdict_noninferior_fluency ? "pass" : "fail"})</p>`;
 }
 
 function mechanismBlock(d) {

@@ -37,17 +37,20 @@ def export_site(settings, tokenizer, out_dir) -> int:
     cands = {f"neuron:L{c['layer']}:N{c['neuron']}:{'+' if c['sign'] > 0 else '-'}": c for c in load_json(res / "candidates.json")}
     vstats = torch.load(run / "vocab.pt")
     summary = torch.load(run / "stats_discovery.pt")["neurons"]["summary"]
-    screen = load_json(res / "screen.json") if (res / "screen.json").exists() else {"generations": [], "summary": []}
-    h2 = load_json(res / "h2.json")["results"] if (res / "h2.json").exists() else {}
-    h3 = load_json(res / "h3_mechanism.json") if (res / "h3_mechanism.json").exists() else {}
-    screen_summary = {s["key"]: s for s in screen["summary"]}
+    opt = lambda name, default: load_json(res / f"{name}.json") if (res / f"{name}.json").exists() else default
+    screens = [opt(n, {"generations": [], "summary": []}) for n in ("screen", "screen_low")]  # pre-registered + post hoc
+    h2, h2b = opt("h2", {"results": {}})["results"], opt("h2b", {"results": {}})["results"]
+    h3 = opt("h3_mechanism", {})
+    screen_summary = {s["key"]: s for s in screens[0]["summary"]}
+    low_summary = {s["key"]: s for s in screens[1]["summary"]}
+    generations = screens[0]["generations"] + screens[1]["generations"]
     (out_dir / "poles").mkdir(parents=True, exist_ok=True)
     index = []
     for key, lab in labels.items():
         u = lab["unit"]
         row = {"key": key, "file": safe_name(key), "kind": u["kind"], "layer": u["layer"], "index": u["index"], "sign": u["sign"],
                "group": u.get("group", "audit"), "label": lab["explanation"], "ba": lab["balanced_accuracy"],
-               "candidate_score": cands.get(key, {}).get("score"), "steering": key in screen_summary, "confirmed": key in h2}
+               "candidate_score": cands.get(key, {}).get("score"), "steering": key in screen_summary, "confirmed": key in h2 or key in h2b}
         detail = {**row, "examples": {k: examples[key][k] for k in ("label", "detect_top", "detect_random")},
                   "detection": {k: lab[k] for k in ("answers", "truth", "valid")}}
         if u["kind"] == "neuron":
@@ -55,16 +58,23 @@ def export_site(settings, tokenizer, out_dir) -> int:
             detail["stats"] = {k: round(float(v[L, i]), 4) for k, v in summary.items()}
             detail["vocab"] = _vocab(vstats, tokenizer, L, i, u["sign"])
         if key in screen_summary:
-            detail["screen"] = {"levels": screen_summary[key]["levels"], "best_level": screen_summary[key]["best_level"],
-                                "generations": [g for g in screen["generations"] if g["key"] == key]}
+            levels = {str(float(c)): v for c, v in screen_summary[key]["levels"].items()}
+            levels.update({str(float(c)): v for c, v in low_summary.get(key, {}).get("levels", {}).items()})
+            gens = [{**g, "level": float(g["level"])} for g in generations if g["key"] == key]
+            detail["screen"] = {"concept": screen_summary[key]["concept"], "levels": levels,
+                                "best_level": float(low_summary.get(key, screen_summary[key])["best_level"]),
+                                "generations": [g for i, g in enumerate(gens) if g["level"] or i < 10]}  # unsteered once
         if key in h2:
             detail["confirm"] = h2[key]
+        if key in h2b:
+            detail["confirm_h2b"] = h2b[key]
         if key in h3:
             detail["mechanism"] = h3[key]
         save_json(detail, out_dir / "poles" / f"{row['file']}.json")
         index.append(row)
     extras = {name: load_json(res / f"{name}.json") for name in ("h1", "split_stability", "benchmark") if (res / f"{name}.json").exists()}
-    save_json({"model": settings.model_name, "poles": index, "h2": h2, **extras}, out_dir / "index.json")
+    strip = lambda d: {k: {kk: vv for kk, vv in v.items() if kk != "generations"} for k, v in d.items()}
+    save_json({"model": settings.model_name, "poles": index, "h2": strip(h2), "h2b": strip(h2b), **extras}, out_dir / "index.json")
     return len(index)
 
 
