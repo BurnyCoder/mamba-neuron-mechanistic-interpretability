@@ -50,7 +50,7 @@ LOW_PLACEHOLDER
 
 ## Learnings
 1. **Judge the right concept.** We first judged steering against the *input-side* detection label. The judge then answered a mechanism question ("is there a token before 'all'?") and gave 0 even to "all all all". Steering must be judged against what the neuron *writes*. We caught this after 7 judge calls and recorded it as amendment 4.
-2. **Pre-registered doses were too strong.** Doses were chosen as in SAE-feature clamping (multiples of max), but Mamba neurons are extremely heavy-tailed (median kurtosis 354). Their maxima are 10–100× their typical firing, so 2× max is already far outside the natural range.
+2. **Pre-registered doses were too strong.** Doses were chosen as in SAE-feature clamping (multiples of max), but Mamba neurons are extremely heavy-tailed (median kurtosis 354). For the H2 poles, the median of the 200 strongest held-out firings is 9–38× below the discovery maximum, so 2× max is already far outside the natural range.
 3. **The original null could never pass Holm.** A 20-neuron random null caps the empirical p at 1/21, which Holm over 3 poles can never bring below 0.05. We found this by code review before any confirmation data existed and fixed it to an 80-neuron null (amendment 5).
 4. **Faster judging.** Asking for one-sentence explanations and using a 2k context cut judge latency from about 20 s to about 1.2 s per call. Parallel Ollama requests did not help on this GPU (1.55 vs 1.35 s/call).
 5. **Neutral prompts.** L32 N2669 had only 47 of 400 openings below its 90th-percentile activation (its q90 is −0.015), so its confirmation uses 47 prompts instead of 50.

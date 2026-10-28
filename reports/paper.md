@@ -89,7 +89,77 @@ The protocol runs in three stages:
 **Pre-registration.** Hypotheses, metrics, tests and thresholds were committed to the public repository before the main-model analyses ([preregistration.md](https://github.com/BurnyCoder/mamba-neuron-mechanistic-interpretability/blob/main/reports/preregistration.md)). Every later change is a dated amendment listing what data existed at the time (Appendix A).
 
 ## 4 Results
-RESULTS_PLACEHOLDER
+### 4.1 Atlas: Mamba neurons are sparse, heavy-tailed detectors
+Over 2.32M discovery tokens, the median neuron has kurtosis **354** (10th–90th percentile 46–3,064) and skew +7.4. 85.6% of neurons are positively skewed. For the 96 random directions the median kurtosis is **6.9** (Gaussian = 3) and the skew −0.03 (Table 1). Statistics replicate on the disjoint held-out documents, with Spearman ρ between splits of 0.96 (max), 0.94 (kurtosis) and 0.998 (std). Activation scale grows with depth: the median per-neuron maximum is 0.5 at layer 0 and 24.4 at layer 42.
+
+By contrast, the write-side vocabulary projections are close to Gaussian. The median vocab kurtosis is 3.23–3.55 per layer, highest in layers 31–40. Prediction-like neurons are therefore a heavy tail, not the norm. The pre-registered candidate formula selected 60 late-layer poles (layers 27–47 apart from three). Almost all are next-token-prediction neurons for one word family, such as `all`, `way`, `nor`, `time`, `from`, `as`, `per` and `respectively`. Examples:
+- L37 N1812 fires on "after" in "after all" and promotes `all`.
+- L38 N918 fires on "make(s)" before "sense".
+
+: **Table 1.** Activation shape of neurons and random directions (discovery split).
+
+| | Neurons (196,608) | Random directions (96) |
+|---|---|---|
+| Kurtosis, median [p10, p90] | 354 [46, 3,064] | 6.9 [5.1, 19.7] |
+| Skew, median [p10, p90] | +7.4 [−1.5, +31.4] | −0.03 [−0.44, +0.45] |
+| Positively skewed | 85.6% | 45.8% |
+
+### 4.2 H1: a local-LLM audit does not separate neurons from random directions
+192 random-neuron poles and 192 random-direction poles were labelled and scored on held-out text (Figure 1). Clean rates (detection balanced accuracy ≥ 0.8) were **15.1%** (Wilson 95% CI 10.7–20.9%) for neurons and **13.5%** (9.4–19.1%) for directions. The difference is +1.6 points (unit-bootstrap 95% CI −5.7 to +8.3), with one-sided Fisher p = 0.39. **H1 is not supported.**
+
+Mean balanced accuracy was 0.617 (0.597–0.637) for neurons against 0.583 (0.560–0.607) for directions; this comparison is post hoc. By depth, neurons stay flat at 0.63, 0.60 and 0.62 for layers 0–15, 16–31 and 32–47, while directions fall from 0.63 to 0.56. Formula candidates, which are not part of H1, reached a mean BA of 0.768 with 30 of 60 clean.
+
+The detection judge agreed only moderately with blind ratings: κ = 0.55 on 40 decisions, below the pre-registered acceptance bar of 0.6. The audit's measurement floor is therefore high. With a 9B local labeller only about 15% of any units count as clean, far from the ~90% that Goodfire reports with expert auditing of Qwen3-32B.
+
+![**Figure 1.** H1. Left: clean-pole rates with Wilson 95% CIs. Right: distribution of held-out detection balanced accuracy.](../results/mamba-1.4b-hf/figures/h1_clean_rate.png)
+
+### 4.3 Steering screen: concepts in, fluency out
+Clamping each of 39 clean candidate poles at 2× its maximum (10 prompts) raised the mean judged concept score from 0.08 to **0.82**, and the share of generations with the concept present (score ≥ 1) from 6% to 48%. Judged fluency fell from 0.60 to 0.11, and distinct-2 from 0.91 to 0.39. Higher doses only made it worse (Table 2). The typical failure is repetition of the promoted token ("all all all …", "@@@@").
+
+The steering judge was validated on 40 blind items. The concept judge is reliable (κ = 0.79, 87.5% exact agreement). The fluency judge is not (κ = 0.34): it is systematically harsh, with a mean of 0.25 against 0.65 for manual ratings.
+
+: **Table 2.** Screen and post-hoc low-dose sweep, averaged over 39 poles (10 prompts each, prompt set A).
+
+| Dose (× pole max) | Concept | P(concept ≥ 1) | Fluency (judge) | distinct-2 | HM |
+|---|---|---|---|---|---|
+| unsteered | 0.08 | 0.06 | 0.60 | 0.91 | 0.050 |
+| 0.25 (post hoc) | 0.52 | 0.32 | 0.42 | 0.83 | **0.092** |
+| 0.5 (post hoc) | 0.75 | 0.45 | 0.31 | 0.68 | 0.080 |
+| 1 (post hoc) | 0.80 | 0.48 | 0.19 | 0.51 | 0.054 |
+| 2 | 0.82 | 0.48 | 0.11 | 0.39 | 0.022 |
+| 5 | 0.67 | 0.40 | 0.05 | 0.27 | 0.008 |
+| 10 | 0.76 | 0.45 | 0.02 | 0.21 | 0.000 |
+| 20 | 0.70 | 0.41 | 0.01 | 0.17 | 0.000 |
+
+### 4.4 H2: pre-registered confirmation
+H2_RESULT_PLACEHOLDER
+
+### 4.5 Post-hoc low-dose regime and H2b
+The pre-registered doses (≥ 2× the maximum) sit far outside these neurons' natural range. For the three H2 poles, the median of the 200 strongest firings in 256k held-out tokens is 9–38× below the discovery maximum. A post-hoc sweep at 0.25×, 0.5× and 1× found a regime where the concept enters without breaking the text (Table 2). The best poles kept judged fluency within 0.1–0.2 of the unsteered level (0.5–0.8 vs 0.6) and distinct-2 at 0.82–0.93 (unsteered 0.91):
+- L30 N815 ("from", 0.5×): HM 0.67, concept 1.6.
+- L30 N2121 ("as", 0.5×): HM 0.60, concept 1.6.
+- L37 N71 ("first", 0.25×): HM 0.53, concept 1.6.
+
+Example (L30 N2121, 0.5×): "…objects, and more specifically, **as** used in a mobile device." These three poles and doses were then pre-registered as H2b and tested on a fresh prompt set C.
+
+H2B_RESULT_PLACEHOLDER
+
+### 4.6 H3 and mechanism: sufficient but barely necessary, and driven by long-range SSM state
+Results for the three H2 poles (Table 3):
+- **Ablation (H3).** Zero-ablation lowered log p(next token) at the 200 strongest held-out firings by 0.0018 (L28 N953) and 0.0123 nats (L32 N2669). Both exceed all 20 random same-layer neurons (empirical p = 1/21, uncorrected). The "as" neuron L30 N2121 showed no effect (−0.003 nats, p = 0.76).
+- **Gate.** At all 600 firings the gate was open (z > 0, median SiLU(z) 3.1–4.2), so the SSM factor y decides the pole. The double-negative regime never occurred.
+- **Context truncation.** With only the last ≤ 4 tokens, which is Mamba's convolution window, the activations reached 0–11% of their full-context value. They recovered to 40–84% with 32 tokens. These neurons depend on context carried by the recurrent state.
+- **Patching.** Writing a typical firing value at a single position changed promoted-token log-probabilities no more than random neurons did (p 0.33–0.86).
+
+: **Table 3.** H3 and mechanism for the H2 poles (activation ratio = truncated / full context).
+
+| Pole | Ablation drop (nats) | Null max | p | Ratio, k = 4 | Ratio, k = 32 | Gate open |
+|---|---|---|---|---|---|---|
+| L30 N2121 ("as") | −0.0030 | 0.0030 | 0.76 | 0.00 | 0.40 | 100% |
+| L28 N953 ("[") | 0.0018 | 0.0014 | 0.048 | 0.00 | 0.74 | 100% |
+| L32 N2669 ("set") | 0.0123 | 0.0069 | 0.048 | 0.11 | 0.84 | 100% |
+
+SURVEY_RESULT_PLACEHOLDER
 
 ## 5 Discussion
 DISCUSSION_PLACEHOLDER
