@@ -83,7 +83,7 @@ def export_hf(settings, tokenizer, out_dir) -> list[str]:
 
     neuron_stats.parquet - one row per neuron (196,608): activation statistics on both splits + vocab projection
     poles.parquet        - one row per labelled pole: label, detection score, group, examples (JSON)
-    steering.parquet     - every judged generation of the screen and the confirmation
+    steering.parquet     - every judged generation: screen, post-hoc low-dose sweep, H2 and H2b confirmations
     """
     import json
 
@@ -110,12 +110,12 @@ def export_hf(settings, tokenizer, out_dir) -> list[str]:
                    "promoted": examples[k]["promoted"], "examples_json": json.dumps({x: examples[k][x] for x in ("label", "detect_top", "detect_random")}, ensure_ascii=False)}
                   for k, v in labels.items()]).to_parquet(out_dir / "poles.parquet")
     rows = []
-    if (res / "screen.json").exists():
-        rows += [{"stage": "screen", **{k: g.get(k) for k in ("key", "level", "prompt_idx", "prompt", "text", "concept", "fluency", "hm", "nll", "distinct2")}}
-                 for g in load_json(res / "screen.json")["generations"]]
-    if (res / "h2.json").exists():
-        rows += [{"stage": "confirm", **{k: g.get(k) for k in ("key", "condition", "seed", "prompt_idx", "prompt", "text", "concept", "fluency", "hm", "nll", "distinct2")}}
-                 for g in load_json(res / "h2.json")["generations"]]
+    fields = ("key", "level", "condition", "seed", "prompt_idx", "prompt", "text", "concept", "fluency", "hm", "nll", "distinct2")
+    for stage, name in (("screen", "screen"), ("screen_low_posthoc", "screen_low"), ("confirm_h2", "h2"), ("confirm_h2b", "h2b")):
+        if (res / f"{name}.json").exists():
+            rows += [{"stage": stage, **{k: g.get(k) for k in fields}} for g in load_json(res / f"{name}.json")["generations"]]
+    for r in rows:
+        r["level"] = None if r["level"] is None else float(r["level"])  # one numeric type per column
     if rows:
         pd.DataFrame(rows).to_parquet(out_dir / "steering.parquet")
     return sorted(p.name for p in out_dir.glob("*.parquet"))
