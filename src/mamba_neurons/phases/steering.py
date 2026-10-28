@@ -1,0 +1,184 @@
+"""Steering phases: exploratory screen (prompt set A) and pre-registered confirmation (prompt set B), each split into
+a generation phase (Mamba on GPU) and a judging phase (Ollama on GPU), never both at once.
+
+Local explanation:
+  * screen: clamp each well-labelled candidate pole at c x |pole extreme| for c in LEVELS on 10 prompts; judge concept
+    (the pole's label) + fluency; pick <= 3 poles by mean harmonic-mean gain over unsteered -> results/confirm_plan.json.
+  * confirm: for each planned pole, 50 neutral prompts (neuron inactive) x 2 seeds under unsteered / clamp / add /
+    DiffMean / prompting, plus 20 random same-layer neurons x 50 prompts; judge; H2 statistics as pre-registered.
+Global context: H2 in reports/preregistration.md; the confirm plan must be appended there before `confirm` runs.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+
+from ..judge import rate_concept, rate_fluency
+from ..llm import LocalLLM
+from ..logging_utils import get_logger
+from ..metrics import cluster_bootstrap_diff, cluster_bootstrap_mean, distinct_n, empirical_p, harmonic_mean, holm
+from ..model import load_model, n_neurons, record_layer
+from ..steer import (add_setup, clamp_setup, continuation_nll, diffmean_vector, generate, neutral_prompts,
+                     pole_values, residual_budget, vector_setup)
+from .common import free_gpu, get_windows, load_json, load_stats, pole_extreme, save_json
+
+log = get_logger(__name__)
+LEVELS = (2, 5, 10, 20)  # clamp multiples of the pole extreme (pre-registered)
+PROMPT_LEN, N_SCREEN, N_CONFIRM, N_RANDOM = 16, 10, 50, 20
+CLEAN = 0.8
+
+
+def _record_generations(model, tok, prompts, conts, meta: dict) -> list[dict]:
+    """Rows of {meta..., prompt_idx, text, nll, distinct2} for a batch of continuations."""
+    nll = continuation_nll(model, prompts, conts)
+    return [{**meta, "prompt_idx": i, "prompt": tok.decode(prompts[i, 1:]), "text": tok.decode(conts[i]),
+             "nll": float(nll[i]), "distinct2": distinct_n(conts[i].tolist(), 2)} for i in range(len(conts))]
+
+
+def _screen_poles(settings) -> list[dict]:
+    """Candidate poles whose label is clean (BA >= 0.8), best candidate score first (amendment 2 in the prereg)."""
+    labels = load_json(settings.results_path() / "autointerp.json")
+    cands = load_json(settings.results_path() / "candidates.json")
+    poles = []
+    for c in cands:
+        key = f"neuron:L{c['layer']}:N{c['neuron']}:{'+' if c['sign'] > 0 else '-'}"
+        if key in labels and labels[key]["balanced_accuracy"] >= CLEAN:
+            poles.append({**c, "key": key, "label": labels[key]["explanation"], "ba": labels[key]["balanced_accuracy"]})
+    return poles
+
+
+def phase_screen(settings) -> None:
+    """Generate the exploratory clamp sweep on prompt set A."""
+    model, tok = load_model(settings.model_name, settings.dtype, settings.device)
+    held = get_windows(settings, tok)["heldout"]
+    stats = load_stats(settings)
+    prompts = neutral_prompts(held, N_SCREEN, PROMPT_LEN, settings.seed)  # prompt set A
+    rows = _record_generations(model, tok, prompts, generate(model, prompts, None, settings.seed), {"key": "unsteered", "level": 0})
+    poles = _screen_poles(settings)
+    log.info("screening %d clean candidate poles", len(poles))
+    for p in poles:
+        ext = pole_extreme(stats["discovery"], p["layer"], p["neuron"], p["sign"])
+        for c in LEVELS:
+            setup = clamp_setup(p["layer"], p["neuron"], p["sign"] * c * ext)
+            conts = generate(model, prompts, setup, settings.seed)
+            rows += _record_generations(model, tok, prompts, conts, {"key": p["key"], "level": c})
+        log.info("screen %s (%s): e.g. c=%d -> %r", p["key"], p["label"], LEVELS[-1], rows[-1]["text"][:120])
+    save_json({"poles": poles, "generations": rows}, settings.run_dir() / "screen_generations.json")
+    free_gpu(model)
+
+
+def _judge(llm, rows: list[dict], concept_of) -> None:
+    """Add concept / fluency / hm to each row in place (fluency cached per text)."""
+    fluency_cache: dict[str, int] = {}
+    for n, r in enumerate(rows, 1):
+        r["concept"] = rate_concept(llm, concept_of(r), r["text"])
+        if r["text"] not in fluency_cache:
+            fluency_cache[r["text"]] = rate_fluency(llm, r["text"])
+        r["fluency"] = fluency_cache[r["text"]]
+        r["hm"] = harmonic_mean(r["concept"], r["fluency"])
+        if n % 50 == 0:
+            log.info("judged %d/%d", n, len(rows))
+
+
+def phase_screen_judge(settings) -> None:
+    """Judge the screen; choose <= 3 poles (and their level) for confirmation by mean HM gain over unsteered."""
+    data = load_json(settings.run_dir() / "screen_generations.json")
+    poles = {p["key"]: p for p in data["poles"]}
+    base = [r for r in data["generations"] if r["key"] == "unsteered"]
+    rows = [r for r in data["generations"] if r["key"] != "unsteered"]
+    rows += [{**r, "key": k, "level": 0} for k in poles for r in base]  # unsteered judged against every pole's concept
+    llm = LocalLLM(settings.ollama_host, settings.llm_model)
+    _judge(llm, rows, lambda r: poles[r["key"]]["label"])
+    llm.unload()
+    summary = []
+    for key, p in poles.items():
+        by_level = {c: [r for r in rows if r["key"] == key and r["level"] == c] for c in (0, *LEVELS)}
+        stats = {c: {m: float(np.mean([r[m] for r in rs])) for m in ("concept", "fluency", "hm", "nll")} for c, rs in by_level.items()}
+        best = max(LEVELS, key=lambda c: stats[c]["hm"])
+        summary.append({**p, "levels": stats, "best_level": best, "hm_gain": stats[best]["hm"] - stats[0]["hm"]})
+    summary.sort(key=lambda s: -s["hm_gain"])
+    save_json({"summary": summary, "generations": rows}, settings.results_path() / "screen.json")
+    plan = [{k: s[k] for k in ("key", "layer", "neuron", "sign", "label", "best_level", "hm_gain")} for s in summary[:3]]
+    save_json(plan, settings.results_path() / "confirm_plan.json")
+    log.info("confirm plan: %s", plan)
+
+
+def _neutral_prompt_set(model, held, disc, layer, neuron, sign, seed) -> np.ndarray:
+    """50 prompt-set-B openings on which s*a_i stays below its 90th discovery percentile on every token."""
+    q90 = np.quantile(pole_values(model, disc.tokens[:200], layer, neuron, sign)[:, 1:], 0.9)
+    pool = neutral_prompts(held, 400, PROMPT_LEN, seed, skip=N_SCREEN)  # disjoint from prompt set A
+    ok = pole_values(model, pool, layer, neuron, sign)[:, 1:].max(1) < q90
+    log.info("neutral prompts for L%d N%d: %d/%d eligible (q90=%.3f)", layer, neuron, ok.sum(), len(pool), q90)
+    return pool[ok][:N_CONFIRM]
+
+
+def phase_confirm(settings) -> None:
+    """Generate all pre-registered confirmation conditions for every planned pole."""
+    model, tok = load_model(settings.model_name, settings.dtype, settings.device)
+    windows = get_windows(settings, tok)
+    stats = load_stats(settings)
+    rng = np.random.default_rng(settings.seed)
+    rows = []
+    for p in load_json(settings.results_path() / "confirm_plan.json"):
+        L, i, s, c = p["layer"], p["neuron"], p["sign"], p["best_level"]
+        prompts = _neutral_prompt_set(model, windows["heldout"], windows["discovery"], L, i, s, settings.seed)
+        value = s * c * pole_extreme(stats["discovery"], L, i, s)
+        budget = residual_budget(model, L, i, value)
+        dm = diffmean_vector(model, windows["heldout"], stats["heldout"]["neurons"], L, i, s, settings.seed)
+        prefix = np.asarray(tok(f"{p['label']}:\n").input_ids, dtype=prompts.dtype)
+        prompted = np.concatenate([prompts[:, :1], np.tile(prefix, (len(prompts), 1)), prompts[:, 1:]], axis=1)
+        conditions = {"unsteered": None, "clamp": clamp_setup(L, i, value), "add": add_setup(L, i, value),
+                      "diffmean": vector_setup(L, dm / dm.norm() * budget)}
+        for seed in (settings.seed, settings.seed + 1):
+            for name, setup in conditions.items():
+                rows += _record_generations(model, tok, prompts, generate(model, prompts, setup, seed),
+                                            {"key": p["key"], "condition": name, "seed": seed})
+            conts = generate(model, prompted, None, seed)
+            rows += _record_generations(model, tok, prompts, conts, {"key": p["key"], "condition": "prompting", "seed": seed})
+        others = rng.choice([j for j in range(n_neurons(model)) if j != i], N_RANDOM, replace=False)
+        for j in others:
+            vj = s * c * pole_extreme(stats["discovery"], L, int(j), s)
+            rows += _record_generations(model, tok, prompts, generate(model, prompts, clamp_setup(L, int(j), vj), settings.seed),
+                                        {"key": p["key"], "condition": f"random:{int(j)}", "seed": settings.seed})
+        log.info("confirm %s: %d generations so far; clamp e.g. %r", p["key"], len(rows),
+                 next(r["text"] for r in rows if r["key"] == p["key"] and r["condition"] == "clamp")[:150])
+    save_json(rows, settings.run_dir() / "confirm_generations.json")
+    free_gpu(model)
+
+
+def phase_confirm_judge(settings) -> None:
+    """Judge confirmation generations and run the pre-registered H2 tests."""
+    rows = load_json(settings.run_dir() / "confirm_generations.json")
+    plan = {p["key"]: p for p in load_json(settings.results_path() / "confirm_plan.json")}
+    llm = LocalLLM(settings.ollama_host, settings.llm_model)
+    _judge(llm, rows, lambda r: plan[r["key"]]["label"])
+    llm.unload()
+    results, pvals = {}, []
+    for key in plan:
+        mine = [r for r in rows if r["key"] == key]
+        by = {}
+        for r in mine:
+            by.setdefault(r["condition"], []).append(r)
+        cond = {}
+        for name, rs in by.items():
+            if name.startswith("random:"):
+                continue
+            hm = np.array([r["hm"] for r in rs])
+            clusters = np.array([r["prompt_idx"] for r in rs])
+            cond[name] = {m: float(np.mean([r[m] for r in rs])) for m in ("concept", "fluency", "hm", "nll", "distinct2")}
+            cond[name]["hm_ci95"] = list(cluster_bootstrap_mean(hm, clusters, seed=settings.seed)[1:])
+        null = [float(np.mean([r["hm"] for r in rs])) for name, rs in by.items() if name.startswith("random:")]
+        clamp, base = by["clamp"], by["unsteered"]
+        order = lambda rs: sorted(rs, key=lambda r: (r["seed"], r["prompt_idx"]))  # pair identical prompt + seed
+        diff = cluster_bootstrap_diff([r["hm"] for r in order(clamp)], [r["hm"] for r in order(base)],
+                                      [r["prompt_idx"] for r in order(clamp)], seed=settings.seed)
+        p_null = empirical_p(cond["clamp"]["hm"], null)
+        pvals.append(p_null)
+        results[key] = {"label": plan[key]["label"], "conditions": cond, "random_null_hm": null,
+                        "clamp_minus_unsteered": {"diff": diff[0], "ci95": [diff[1], diff[2]]}, "p_vs_random_null": p_null}
+    for key, p_adj in zip(results, holm(pvals)):
+        r = results[key]
+        r["p_holm"] = p_adj
+        r["h2_supported"] = bool(r["clamp_minus_unsteered"]["ci95"][0] > 0 and p_adj < 0.05 and r["conditions"]["clamp"]["fluency"] >= 1.0)
+    save_json({"results": results, "generations": rows}, settings.results_path() / "h2.json")
+    log.info("H2: %s", {k: (v["clamp_minus_unsteered"], v["p_holm"], v["h2_supported"]) for k, v in results.items()})

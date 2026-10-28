@@ -1,79 +1,55 @@
-"""Pipeline phases: thin functions that wire the library modules to on-disk inputs/outputs.
+"""Atlas phases: scan benchmark, activation collection, vocab projection, candidate selection, example building.
 
-Local explanation: each `phase_*(settings)` loads what it needs from `settings.run_dir()` (large artefacts) or
-`settings.results_path()` (small committed results), calls the modular functions, and saves its outputs.
-Global context: `pipeline.py` runs them by name, in the order of `PHASES`.
+Local explanation: these phases need only the Mamba model (GPU) and produce the neuron atlas: per-neuron statistics
+on both splits, write-vector vocab projections, the pre-registered candidate shortlist, the split-stability check
+and the highlighted examples used for labelling and the viewer.
+Global context: everything downstream (labels, steering, mechanism, viewer) reads these outputs.
 """
 
 from __future__ import annotations
 
-import gc  # explicit garbage collection between GPU-heavy phases
-import json
 import time
 
+import numpy as np
 import torch
+from scipy.stats import spearmanr  # rank correlation for split stability
 
-from .collect import collect_stats
-from .data import build_splits, load_windows, save_windows
-from .logging_utils import get_logger
-from .model import load_model
+from ..autointerp import audit_units, build_examples, unit_key
+from ..collect import collect_stats
+from ..logging_utils import get_logger
+from ..model import load_model, n_layers, n_neurons
+from ..select import coherence, rank_candidates
+from ..vocab import vocab_stats
+from .common import SPLITS, free_gpu, get_windows, load_json, load_stats, save_json
 
 log = get_logger(__name__)
-SPLITS = ("discovery", "heldout")
-
-
-def _save_json(obj, path) -> None:
-    """Pretty JSON writer used for every small result file."""
-    path.write_text(json.dumps(obj, indent=2, ensure_ascii=False), encoding="utf-8")
-
-
-def _free(*objs) -> None:
-    """Drop references and release cached GPU memory before the next GPU user (e.g. Ollama)."""
-    del objs
-    gc.collect()
-    torch.cuda.empty_cache()  # https://pytorch.org/docs/stable/generated/torch.cuda.empty_cache.html
-
-
-def get_windows(settings, tokenizer) -> dict:
-    """Load cached windows for both splits, building and saving them on first use."""
-    paths = {s: settings.run_dir() / f"windows_{s}.npz" for s in SPLITS}
-    if not all(p.exists() for p in paths.values()):
-        for split, windows in build_splits(tokenizer, settings).items():
-            save_windows(windows, paths[split])
-    return {s: load_windows(p) for s, p in paths.items()}
 
 
 def phase_benchmark(settings) -> None:
-    """Throughput + numerical agreement of the sequential scan vs the mamba.py parallel scan (use_mambapy)."""
-    results = {}
-    logits = {}
-    for use_mambapy in (False, True):
-        model, tok = load_model(settings.model_name, settings.dtype, settings.device, use_mambapy=use_mambapy)
-        windows = get_windows(settings, tok)["discovery"]
-        ids = torch.from_numpy(windows.tokens[: settings.batch_size]).long().to(model.device)
-        with torch.inference_mode():
-            model(input_ids=ids[:2], use_cache=False)  # warm-up (CUDA context, kernel selection)
-            torch.cuda.synchronize()
-            t0 = time.time()
-            for _ in range(3):
-                out = model(input_ids=ids, use_cache=False).logits
-            torch.cuda.synchronize()
-        rate = 3 * ids[:, 1:].numel() / (time.time() - t0)
-        logits[use_mambapy] = out.float().cpu()
-        results[f"use_mambapy={use_mambapy}"] = {"tokens_per_s": rate, "peak_mem_gb": torch.cuda.max_memory_allocated() / 1e9}
-        log.info("benchmark use_mambapy=%s: %.0f tok/s, peak %.2f GB", use_mambapy, rate, results[f"use_mambapy={use_mambapy}"]["peak_mem_gb"])
-        _free(model)
-        torch.cuda.reset_peak_memory_stats()
-    diff = (logits[True] - logits[False]).abs()
-    results["max_abs_logit_diff"] = diff.max().item()
-    results["argmax_agreement"] = (logits[True].argmax(-1) == logits[False].argmax(-1)).float().mean().item()
-    log.info("benchmark agreement: max |dlogit| %.4f, argmax agreement %.4f", results["max_abs_logit_diff"], results["argmax_agreement"])
-    _save_json(results, settings.results_path() / "benchmark.json")
+    """Throughput, peak memory and next-token loss of the HF reference torch scan on one discovery batch.
+
+    The loss is a sanity check that the bf16 model is healthy on in-distribution Pile text.
+    """
+    model, tok = load_model(settings.model_name, settings.dtype, settings.device)
+    ids = torch.from_numpy(get_windows(settings, tok)["discovery"].tokens[: settings.batch_size]).long().to(model.device)
+    torch.cuda.reset_peak_memory_stats()
+    with torch.inference_mode():
+        model(input_ids=ids[:2], use_cache=False)  # warm-up (CUDA context, kernel selection)
+        torch.cuda.synchronize()
+        t0 = time.time()
+        for _ in range(3):
+            out = model(input_ids=ids, labels=ids, use_cache=False)  # HF shifts labels internally for the LM loss
+        torch.cuda.synchronize()
+    results = {"tokens_per_s": 3 * ids[:, 1:].numel() / (time.time() - t0), "peak_mem_gb": torch.cuda.max_memory_allocated() / 1e9,
+               "next_token_loss_nats": float(out.loss), "batch_size": settings.batch_size}
+    log.info("benchmark: %s", results)
+    save_json(results, settings.results_path() / "benchmark.json")
+    free_gpu(model)
 
 
 def phase_collect(settings) -> None:
     """Activation statistics + top-k poles for every neuron and random direction, on both splits."""
-    model, tok = load_model(settings.model_name, settings.dtype, settings.device, settings.use_mambapy)
+    model, tok = load_model(settings.model_name, settings.dtype, settings.device)
     windows = get_windows(settings, tok)
     for split in SPLITS:
         out = settings.run_dir() / f"stats_{split}.pt"
@@ -82,10 +58,57 @@ def phase_collect(settings) -> None:
             continue
         log.info("collecting %s: %d windows, %d tokens", split, len(windows[split].tokens), windows[split].n_tokens)
         torch.save(collect_stats(model, windows[split], settings), out)
-    _free(model)
+    free_gpu(model)
 
 
-PHASES = {
-    "benchmark": phase_benchmark,
-    "collect": phase_collect,
-}
+def phase_vocab(settings) -> None:
+    """W_U(g ⊙ w_i) statistics for every neuron; per-layer median vocab kurtosis as a small summary."""
+    model, _ = load_model(settings.model_name, settings.dtype, settings.device)
+    v = vocab_stats(model)
+    torch.save(v, settings.run_dir() / "vocab.pt")
+    save_json({"median_vocab_kurtosis_per_layer": v["kurtosis"].median(1).values.tolist()}, settings.results_path() / "vocab_summary.json")
+    free_gpu(model)
+
+
+def phase_select(settings) -> None:
+    """Pre-registered candidate ranking + split-stability check."""
+    model, tok = load_model(settings.model_name, settings.dtype, settings.device)
+    windows = get_windows(settings, tok)
+    stats = load_stats(settings)
+    vstats = torch.load(settings.run_dir() / "vocab.pt")
+    disc = stats["discovery"]["neurons"]
+    coh = {s: coherence(model, disc, vstats, windows["discovery"], s) for s in (1, -1)}
+    torch.save(coh, settings.run_dir() / "coherence.pt")
+    cands = rank_candidates(disc, vstats, coh, n=60, per_layer=3)
+    for c in cands:  # attach the pole's promoted tokens for readability (negative pole promotes -u)
+        ids = (vstats["top_ids"] if c["sign"] > 0 else vstats["bot_ids"])[c["layer"], :10, c["neuron"]].tolist()
+        c["promoted_tokens"] = [tok.decode([t]) for t in ids]
+    save_json(cands, settings.results_path() / "candidates.json")
+    log.info("top candidates: %s", [(c["layer"], c["neuron"], c["sign"], c["promoted_tokens"][:5]) for c in cands[:10]])
+    stability = {}
+    for key in ("mean", "std", "max", "min", "kurtosis", "frac_pos"):
+        a = stats["discovery"]["neurons"]["summary"][key].flatten().numpy()
+        b = stats["heldout"]["neurons"]["summary"][key].flatten().numpy()
+        stability[key] = float(spearmanr(a, b, nan_policy="omit").statistic)
+    save_json(stability, settings.results_path() / "split_stability.json")
+    log.info("split stability (Spearman discovery vs held-out): %s", stability)
+    free_gpu(model)
+
+
+def phase_examples(settings) -> None:
+    """Highlighted examples for the H1 audit sample (random neurons + random directions) and the candidates."""
+    model, tok = load_model(settings.model_name, settings.dtype, settings.device)
+    windows = get_windows(settings, tok)
+    stats = load_stats(settings)
+    units = audit_units(n_layers(model), n_neurons(model), settings.n_random_directions_per_layer, per_layer=2, seed=settings.seed)
+    for u in units:
+        u["group"] = "audit"
+    keys = {unit_key(u) for u in units}
+    for c in load_json(settings.results_path() / "candidates.json"):
+        u = {"kind": "neuron", "layer": c["layer"], "index": c["neuron"], "sign": c["sign"], "group": "candidate"}
+        if unit_key(u) not in keys:
+            units.append(u)
+    examples = build_examples(model, tok, windows, stats, stats["discovery"]["directions"], units, seed=settings.seed)
+    save_json(examples, settings.run_dir() / "examples.json")
+    log.info("built examples for %d poles", len(examples))
+    free_gpu(model)

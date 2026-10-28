@@ -47,7 +47,7 @@ The candidate score is the mean of the three ranks. The top 60 poles go forward,
 - **Tests.** Paired cluster bootstrap over prompts versus unsteered (95% CI). An empirical p-value versus the random-neuron null: p = (1 + #random ≥ observed) / 21. Holm correction across ≤ 3 neurons.
 - **Supported if** at least one neuron has a CI that excludes 0 versus unsteered, a Holm-adjusted p < 0.05 versus the null, **and** mean fluency ≥ 1.0.
 - **Secondary metrics.** Concept alone; fluency alone; NLL of the continuation under the unsteered model; distinct-2; dose–response over c.
-- **Power.** With a binary concept ≥ 1 proxy, p0 = 0.1 versus p1 = 0.4 at α = 0.05/3 and power 0.8 needs about 45 per arm (statsmodels `NormalIndPower`). 100 per arm was chosen.
+- **Power.** With a binary concept ≥ 1 proxy, p0 = 0.1 versus p1 = 0.4 at α = 0.05/3 and power 0.8 needs about 40 per arm (39.7; statsmodels `NormalIndPower`, Cohen's h). 100 per arm was chosen.
 
 ## H3: necessity
 - **Ablation.** On held-out windows, zero-ablate the neuron at all positions. Measure the drop in log p(actual next token) at its 200 top-firing positions.
@@ -64,4 +64,4 @@ The candidate score is the mean of the three ranks. The top 60 poles go forward,
 - Seed and prompt-set sensitivity.
 
 ## Amendments
-*(none yet)*
+- **2026-10-28 (before any analysis):** the power figure in the first pushed version ("about 45 per arm") was a hand estimate. The tested `metrics.power_n_per_arm` gives 39.7, so the text now says about 40. The chosen n = 100 per arm is unchanged.
