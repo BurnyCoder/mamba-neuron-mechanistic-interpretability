@@ -8,23 +8,13 @@ formats are defined in exactly one place.
 from __future__ import annotations
 
 import gc
-import json
 
 import torch
 
 from ..data import build_splits, load_windows, save_windows
+from ..jsonio import load_json, save_json  # noqa: F401  (re-exported for the phase modules)
 
 SPLITS = ("discovery", "heldout")
-
-
-def save_json(obj, path) -> None:
-    """Pretty UTF-8 JSON writer used for every result file."""
-    path.write_text(json.dumps(obj, indent=1, ensure_ascii=False), encoding="utf-8")
-
-
-def load_json(path):
-    """Inverse of `save_json`."""
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def free_gpu(*objs) -> None:
@@ -34,9 +24,15 @@ def free_gpu(*objs) -> None:
     torch.cuda.empty_cache()  # https://pytorch.org/docs/stable/generated/torch.cuda.empty_cache.html
 
 
+def windows_tag(settings) -> str:
+    """Fingerprint of every setting that changes the windows, so a stale cache is never reused."""
+    return (f"c{settings.ctx_len}-w{settings.max_windows_per_doc}-h{settings.heldout_fraction}-s{settings.seed}"
+            f"-d{settings.max_discovery_tokens}-e{settings.max_heldout_tokens}")
+
+
 def get_windows(settings, tokenizer) -> dict:
     """Load cached windows for both splits, building and saving them on first use."""
-    paths = {s: settings.run_dir() / f"windows_{s}.npz" for s in SPLITS}
+    paths = {s: settings.run_dir() / f"windows_{s}_{windows_tag(settings)}.npz" for s in SPLITS}
     if not all(p.exists() for p in paths.values()):
         for split, windows in build_splits(tokenizer, settings).items():
             save_windows(windows, paths[split])
