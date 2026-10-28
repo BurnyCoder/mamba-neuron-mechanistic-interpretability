@@ -24,6 +24,7 @@ from .common import free_gpu, get_windows, load_json, load_stats, pole_extreme, 
 
 log = get_logger(__name__)
 LEVELS = (2, 5, 10, 20)  # clamp multiples of the pole extreme (pre-registered)
+LOW_LEVELS = (0.25, 0.5, 1.0)  # post-hoc gentler doses (amendment 6)
 PROMPT_LEN, N_SCREEN, N_CONFIRM = 16, 10, 50
 N_RANDOM, N_RANDOM_PROMPTS = 80, 10  # amendment 5: min empirical p = 1/81, so Holm over 3 poles can reach < 0.05
 JUDGE_CTX = 2048  # judge prompts are < 1k tokens; a small KV cache keeps the 9B judge entirely on an 8 GB GPU
@@ -52,25 +53,35 @@ def _screen_poles(settings) -> list[dict]:
     return poles
 
 
-def phase_screen(settings) -> None:
-    """Generate the exploratory clamp sweep on prompt set A."""
+def _screen_generate(settings, levels, tag: str) -> None:
+    """Clamp sweep on prompt set A at `levels` x |pole extreme| for every clean candidate pole."""
     model, tok = load_model(settings.model_name, settings.dtype, settings.device)
     held = get_windows(settings, tok)["heldout"]
     stats = load_stats(settings)
     prompts = neutral_prompts(held, N_SCREEN, PROMPT_LEN, settings.seed)  # prompt set A
     rows = _record_generations(model, tok, prompts, generate(model, prompts, None, settings.seed), {"key": "unsteered", "level": 0})
     poles = _screen_poles(settings)
-    log.info("screening %d clean candidate poles", len(poles))
+    log.info("%s: %d clean candidate poles at levels %s", tag, len(poles), levels)
     for p in poles:
         ext = pole_extreme(stats["discovery"], p["layer"], p["neuron"], p["sign"])
-        for c in LEVELS:
+        for c in levels:
             setup = clamp_setup(p["layer"], p["neuron"], p["sign"] * c * ext)
             conts = generate(model, prompts, setup, settings.seed)
             rows += _record_generations(model, tok, prompts, conts, {"key": p["key"], "level": c})
-        log.info("screen %s (%s): e.g. c=%d -> %r", p["key"], p["label"], LEVELS[-1], rows[-1]["text"][:120])
-    save_json({"poles": poles, "generations": rows}, settings.run_dir() / "screen_generations.json")
+        log.info("%s %s (%s): e.g. c=%s -> %r", tag, p["key"], p["label"], levels[-1], rows[-1]["text"][:120])
+    save_json({"poles": poles, "generations": rows}, settings.run_dir() / f"{tag}_generations.json")
     del model  # drop the last reference first, otherwise empty_cache cannot release the weights
     free_gpu()
+
+
+def phase_screen(settings) -> None:
+    """Pre-registered exploratory screen: clamp at 2, 5, 10, 20 x max on prompt set A."""
+    _screen_generate(settings, LEVELS, "screen")
+
+
+def phase_screen_low(settings) -> None:
+    """POST HOC (amendment 6): the same sweep at gentler doses 0.25, 0.5, 1 x max."""
+    _screen_generate(settings, LOW_LEVELS, "screen_low")
 
 
 def _judge(llm, rows: list[dict], concept_of) -> None:
@@ -86,15 +97,20 @@ def _judge(llm, rows: list[dict], concept_of) -> None:
             log.info("concept judged %d/%d", n, len(rows))
 
 
-def phase_screen_judge(settings) -> None:
-    """Judge the screen; choose <= 3 poles (and their level) for confirmation by mean HM gain over unsteered."""
-    data = load_json(settings.run_dir() / "screen_generations.json")
+def _screen_judge(settings, levels, tag: str, reuse_concepts: bool) -> list[dict]:
+    """Judge a sweep; returns the per-pole summary sorted by mean HM gain over unsteered (saved to results)."""
+    data = load_json(settings.run_dir() / f"{tag}_generations.json")
     poles = {p["key"]: p for p in data["poles"]}
-    promoted = {k: v["promoted"] for k, v in load_json(settings.run_dir() / "examples.json").items() if k in poles}
     llm = LocalLLM(settings.ollama_host, settings.llm_model, num_ctx=JUDGE_CTX)
-    for key, p in poles.items():  # fixed before any steered text is judged
-        p["concept"] = steering_concept(llm, p["label"], promoted[key])
-        log.info("steering concept %s: %s -> %s", key, p["label"], p["concept"])
+    if reuse_concepts:  # identical concept text as the pre-registered screen
+        known = {x["key"]: x["concept"] for x in load_json(settings.results_path() / "screen.json")["summary"]}
+        for key, p in poles.items():
+            p["concept"] = known[key]
+    else:
+        promoted = {k: v["promoted"] for k, v in load_json(settings.run_dir() / "examples.json").items() if k in poles}
+        for key, p in poles.items():  # fixed before any steered text is judged
+            p["concept"] = steering_concept(llm, p["label"], promoted[key])
+            log.info("steering concept %s: %s -> %s", key, p["label"], p["concept"])
     base = [r for r in data["generations"] if r["key"] == "unsteered"]
     rows = [r for r in data["generations"] if r["key"] != "unsteered"]
     rows += [{**r, "key": k, "level": 0} for k in poles for r in base]  # unsteered judged against every pole's concept
@@ -102,15 +118,27 @@ def phase_screen_judge(settings) -> None:
     llm.unload()
     summary = []
     for key, p in poles.items():
-        by_level = {c: [r for r in rows if r["key"] == key and r["level"] == c] for c in (0, *LEVELS)}
+        by_level = {c: [r for r in rows if r["key"] == key and r["level"] == c] for c in (0, *levels)}
         stats = {c: {m: float(np.mean([r[m] for r in rs])) for m in ("concept", "fluency", "hm", "nll")} for c, rs in by_level.items()}
-        best = max(LEVELS, key=lambda c: stats[c]["hm"])
+        best = max(levels, key=lambda c: stats[c]["hm"])
         summary.append({**p, "levels": stats, "best_level": best, "hm_gain": stats[best]["hm"] - stats[0]["hm"]})
     summary.sort(key=lambda s: -s["hm_gain"])
-    save_json({"summary": summary, "generations": rows}, settings.results_path() / "screen.json")
+    save_json({"summary": summary, "generations": rows}, settings.results_path() / f"{tag}.json")
+    return summary
+
+
+def phase_screen_judge(settings) -> None:
+    """Judge the screen; choose <= 3 poles (and their level) for confirmation by mean HM gain over unsteered."""
+    summary = _screen_judge(settings, LEVELS, "screen", reuse_concepts=False)
     plan = [{k: s[k] for k in ("key", "layer", "neuron", "sign", "label", "concept", "best_level", "hm_gain")} for s in summary[:3]]
     save_json(plan, settings.results_path() / "confirm_plan.json")
     log.info("confirm plan: %s", plan)
+
+
+def phase_screen_low_judge(settings) -> None:
+    """POST HOC: judge the low-dose sweep with the screen's steering concepts (no plan is written)."""
+    summary = _screen_judge(settings, LOW_LEVELS, "screen_low", reuse_concepts=True)
+    log.info("low-dose sweep, top 5 by HM gain: %s", [(s["key"], s["concept"], s["best_level"], round(s["hm_gain"], 2)) for s in summary[:5]])
 
 
 def _neutral_prompt_set(model, held, disc, layer, neuron, sign, seed) -> np.ndarray:
