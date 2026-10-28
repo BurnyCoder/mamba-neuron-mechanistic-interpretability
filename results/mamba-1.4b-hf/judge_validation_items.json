@@ -1,0 +1,242 @@
+[
+ {
+  "id": 0,
+  "pole": "neuron:L40:N1832:+",
+  "explanation": "The neuron fires on pronouns preceding the word 'self' or its variants.",
+  "snippet": " at least now interested buyers have a little wiggle room when it comes to design. Although the E-P2 does sport an accessory port for attaching the electronic view"
+ },
+ {
+  "id": 1,
+  "pole": "neuron:L16:N1053:+",
+  "explanation": "The neuron fires on page numbers in academic citations.",
+  "snippet": "ai-Mai in North and South Kivu\\n\\nAccording to a 2001 UN report, 20,000 to 30,000 Mai-Mai were active"
+ },
+ {
+  "id": 2,
+  "pole": "neuron:L21:N1592:+",
+  "explanation": "The neuron fires on tokens containing the substring 'no' or 'NO'.",
+  "snippet": " constitutes flipping. Schiff prefers a you-know-it-when-you-see-it definition. “It’s always obvious,” she said. It"
+ },
+ {
+  "id": 3,
+  "pole": "neuron:L21:N1592:-",
+  "explanation": "The neuron fires on tokens that are verbs or nouns related to database operations.",
+  "snippet": " le premier ministre Stephen Harper perd son directeur des communications. Jason MacDonald a annoncé vendredi qu'il quittait son poste"
+ },
+ {
+  "id": 4,
+  "pole": "neuron:L35:N3589:-",
+  "explanation": "The neuron fires on words like 'major', 'key', or 'important' followed by a noun phrase.",
+  "snippet": " a high index of suspicion, ultrasound can be one of the most portable, readily available, low-cost, and minimally invasive techniques for making a rapid diagnosis of r"
+ },
+ {
+  "id": 5,
+  "pole": "direction:L18:N0:-",
+  "explanation": "The neuron fires on the dot before IOException in Java imports.",
+  "snippet": " of interest. They may be demographic, psychographic, ethnic, generational, lifestage or a hybrid combination.\\n\\nGenerational"
+ },
+ {
+  "id": 6,
+  "pole": "direction:L10:N1:-",
+  "explanation": "The neuron fires on the word 'common' in math problems asking for common multiples.",
+  "snippet": "}{\\sigma_0(\\Mepem\\to\\Mmpmm)}$$ where the denominator, $\\sigma_0(\\Mepem\\to\\Mmpmm"
+ },
+ {
+  "id": 7,
+  "pole": "neuron:L41:N812:+",
+  "explanation": "The neuron fires on tokens ending in 'ar' or 'iar' followed by a space.",
+  "snippet": " field method [@dewitt; @abbott] is a convenient tool to quantize gauge theories and make explicit calculations, particularly when it is used in combination with"
+ },
+ {
+  "id": 8,
+  "pole": "neuron:L33:N3530:+",
+  "explanation": "The neuron fires on tokens immediately preceding the word 'so'.",
+  "snippet": " amellivora Baldizzone, 1979\\n\\nfrom Toll (1952a); upper case of a male, lower one of a female\\n\\nAster"
+ },
+ {
+  "id": 9,
+  "pole": "direction:L36:N0:+",
+  "explanation": "Fires on tokens ending common words in multiple languages.",
+  "snippet": "_INCOMPATIBLE]\\n\\nThe same APK can be installed on ARM devices and works successfully.\\n\\nA:\\n\\nYes. It is an"
+ },
+ {
+  "id": 10,
+  "pole": "direction:L13:N0:-",
+  "explanation": "The neuron fires on tokens containing 'ds' or 'ar' followed by common words like 'and'.",
+  "snippet": " that is part of a fiber over relatively short fiber distances, e.g., less than several hundred meters, but with relatively high “spatial” resolutions, e"
+ },
+ {
+  "id": 11,
+  "pole": "neuron:L27:N36:+",
+  "explanation": "The neuron fires when the word 'see' appears in the text.",
+  "snippet": " even more than simply what is the part of the book. Nowadays creating a project on 1's very own is completely challenging. It is difficult as the academic projects"
+ },
+ {
+  "id": 12,
+  "pole": "direction:L11:N1:+",
+  "explanation": "The neuron fires on tokens immediately preceding Java annotations like @Nullable or @NonNull.",
+  "snippet": " + c + 2*c) + c - 3*c + 4*c + 2*c + 6*c - 2*c.\\n8*"
+ },
+ {
+  "id": 13,
+  "pole": "direction:L28:N0:+",
+  "explanation": "The neuron fires on verbs meaning to struggle or battle.",
+  "snippet": "\\n<carla.j.johnson@usa.conoco.com>, CAROLYN CORWIN <ccorwin@cov.com>, CARRI"
+ },
+ {
+  "id": 14,
+  "pole": "neuron:L15:N2152:+",
+  "explanation": "The neuron fires on tokens containing the word reference or referencing.",
+  "snippet": " in single direct link for Windows It is an awesome Racing game Formula 1 2007?\\n\\nF1 2016 includes the expansion of the Safety Car and also the Virtual Safety"
+ },
+ {
+  "id": 15,
+  "pole": "neuron:L46:N2606:+",
+  "explanation": "The neuron fires on tokens preceding the word 'after' in medical text.",
+  "snippet": " la medición en 2013. En lo que va de año, Brasil ha sufrido 72.843 focos, más de la mitad"
+ },
+ {
+  "id": 16,
+  "pole": "direction:L17:N0:+",
+  "explanation": "The neuron fires on the last few letters of common English words.",
+  "snippet": "Calculate the remainder when 37460 is divided by 5332.\\n136\\nCalculate the remainder when 1632536 is divided by 15.\\n11\\nCalculate the remainder"
+ },
+ {
+  "id": 17,
+  "pole": "direction:L12:N1:-",
+  "explanation": "The neuron fires on the token 'ED' in legal document headers.",
+  "snippet": "\\n                                                      Toledo, OH\\n\\nAPPEARANCES FOR THE GOVERNMENT:                      Thomas H. Gourlay, Jr.,"
+ },
+ {
+  "id": 18,
+  "pole": "direction:L19:N0:-",
+  "explanation": "The neuron fires on legal citation fragments ending with a period.",
+  "snippet": " arrest is not grounds for relief under the Uniform Post Conviction Procedure Act, Slater v. Warden, 233 Md. 609, as the legality of the"
+ },
+ {
+  "id": 19,
+  "pole": "neuron:L0:N3483:+",
+  "explanation": "Fires on tokens containing the substring 'mod' or 'ifier'.",
+  "snippet": ", New Hampshire\\n\\nGoshen is a town in Sullivan County, New Hampshire, United States.  The population was 810 at the 2010 census.\\n"
+ },
+ {
+  "id": 20,
+  "pole": "neuron:L24:N1989:+",
+  "explanation": "The neuron fires on tokens that are part of proper names or specific nouns.",
+  "snippet": "group do\\n        resolve fn user, _, %{context: %{test_pid: pid}} ->\\n          batch({__MODULE__, :batch_get_group"
+ },
+ {
+  "id": 21,
+  "pole": "neuron:L40:N2334:+",
+  "explanation": "The neuron fires on tokens preceding case numbers or legal docket identifiers.",
+  "snippet": " = [\"../../emit_fatal.rs\"]\\n\\n[lib]\\npath = \"../../emit_fatal.rs\"\\n\\n[dependencies]\\nemit_"
+ },
+ {
+  "id": 22,
+  "pole": "neuron:L32:N344:+",
+  "explanation": "The neuron fires on tokens preceding mentions of hackers or hacking incidents.",
+  "snippet": " \"Someone torched Tio's drug crib.\" \" What if our blow was in there?\" \" Then it"
+ },
+ {
+  "id": 23,
+  "pole": "neuron:L36:N2748:-",
+  "explanation": "The neuron fires on names of people followed by a title like boss or executive.",
+  "snippet": " associated with human inflammatory bowel disease. The purpose of this study was to evaluate their real effect on colonic sensitivity in rats. The effects of saline and SCFA enemas"
+ },
+ {
+  "id": 24,
+  "pole": "direction:L6:N1:+",
+  "explanation": "Fires on tokens containing the substring 'iv' or 'ch'.",
+  "snippet": " Of Textile Experience on its back in dealing all categories of\\ntextile products as given details below:-\\n\\nQUALITY CONTROL\\n\\nApart from buyers manual"
+ },
+ {
+  "id": 25,
+  "pole": "direction:L38:N0:+",
+  "explanation": "The neuron fires on tokens preceding words like 'health' or 'Department' in US healthcare contexts.",
+  "snippet": " the Fair Debt Collection Practices Act, the Fair Credit Reporting Act, and the ECOA. (Am. Compl. ¶¶ 25-26.)\\n\\nGE"
+ },
+ {
+  "id": 26,
+  "pole": "neuron:L21:N3584:+",
+  "explanation": "The neuron fires on tokens that are part of a multi-word phrase describing a measurable quantity or attribute.",
+  "snippet": "997 rounded to seven dps?\\n0.0000079\\nRound 257288055.8 to the nearest 1000000.\\n257000000\\nRound -86.5"
+ },
+ {
+  "id": 27,
+  "pole": "neuron:L15:N2746:+",
+  "explanation": "The neuron fires on tokens that are parts of words like stool, feces, urine, or egg.",
+  "snippet": " derivative of -r*j**2 - j**6 - 20*j**5 + 20*j**5 wrt j?\\n-120*j**"
+ },
+ {
+  "id": 28,
+  "pole": "neuron:L42:N2377:+",
+  "explanation": "Fires on newline tokens preceding code snippets or answers.",
+  "snippet": " from same text in c# and ts/js\\ni found some solution here on stackoverflow but have some issue \\nso my js\\nprivate getStable"
+ },
+ {
+  "id": 29,
+  "pole": "neuron:L2:N67:-",
+  "explanation": "The neuron fires on tokens containing the word type or Type.",
+  "snippet": "\\n{\\n    using iterator_category = std::random_access_iterator_tag;\\n    using value_type = T;\\n    using difference_"
+ },
+ {
+  "id": 30,
+  "pole": "neuron:L44:N444:+",
+  "explanation": "The neuron fires when the word following the marked token is 'it'.",
+  "snippet": "/math.h>\r\\n#include <LCUI/util/parse.h>\r\\n#include <LCUI/util/linkedlist.h"
+ },
+ {
+  "id": 31,
+  "pole": "direction:L27:N0:+",
+  "explanation": "The neuron fires on tokens preceding a comma or period ending a sentence.",
+  "snippet": "00\\nLet z = -95874.9147146 + 96020.9147. Let i"
+ },
+ {
+  "id": 32,
+  "pole": "neuron:L38:N3115:+",
+  "explanation": "The neuron fires on prepositions before 'which' or 'whom' introducing a relative clause.",
+  "snippet": "118 reads\\n\\nFew days back, I was just playing around with Facebook’s div elements to get an insight how the various html divs are structured, rendered"
+ },
+ {
+  "id": 33,
+  "pole": "neuron:L1:N1260:+",
+  "explanation": "The neuron fires on tokens containing common suffixes like -te, -ing, or -ν.",
+  "snippet": "\\nrecycling; established the cost benefits of public-"
+ },
+ {
+  "id": 34,
+  "pole": "direction:L0:N0:-",
+  "explanation": "The neuron fires on specific substrings of words like femur, Galactic, endometriosis, and heterocyclic.",
+  "snippet": "\\n0\\nTwo letters picked without replacement from lssmemmcesqc. What is prob of sequence cl?\\n1/66\\nThree letters picked without replacement"
+ },
+ {
+  "id": 35,
+  "pole": "direction:L40:N1:-",
+  "explanation": "The neuron fires on tokens that are part of a mathematical expression or variable name.",
+  "snippet": " made a decision to start working for himself. In late 2014, he founded Owens Print & Creative Solutions, a company that specializes in the quick turnaround of commercial printing"
+ },
+ {
+  "id": 36,
+  "pole": "direction:L3:N0:-",
+  "explanation": "The neuron fires on the substring 'uit' within words like 'Circuit' or 'polynomial'.",
+  "snippet": " adding values to it.\\nIf you move the initialization code outside the loop, you will not have this problem:\\ncoindata = {}\\ncoindata"
+ },
+ {
+  "id": 37,
+  "pole": "neuron:L37:N615:+",
+  "explanation": "Fires on tokens that are part of a word containing the letter 'i'.",
+  "snippet": " team is productive, we need to make sure each and every member of the team has his or her own personal interest in a good result of the team. This interest"
+ },
+ {
+  "id": 38,
+  "pole": "neuron:L25:N3642:+",
+  "explanation": "Fires on Java code accessing object properties or methods via dot notation.",
+  "snippet": "Logger::WARNING));\\n        $handler->handle($this->getRecord(Logger::DEBUG));\\n        $this->shutdownCheckHandler = $test;"
+ },
+ {
+  "id": 39,
+  "pole": "neuron:L27:N1042:-",
+  "explanation": "The neuron fires on citation markers like [@ or [ and preceding text.",
+  "snippet": "ubefake.NewSimpleClientset(),\\n\t}\\n\ttype args struct {\\n\t\tclients       kube.Clients\\n\t\tforecastle"
+ }
+]

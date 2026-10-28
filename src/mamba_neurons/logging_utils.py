@@ -41,7 +41,7 @@ def setup_logging(phase: str, log_dir: Path) -> Path:
     file_handler.setFormatter(formatter)
     root.addHandler(console)
     root.addHandler(file_handler)
-    for noisy in ("httpx", "urllib3", "filelock", "huggingface_hub"):  # silence per-request HTTP chatter
+    for noisy in ("httpx", "httpx2", "urllib3", "filelock", "huggingface_hub"):  # silence per-request HTTP chatter
         logging.getLogger(noisy).setLevel(logging.WARNING)
     logging.getLogger(__name__).info("Logging to %s (LLM calls -> %s)", log_path, _LLM_JSONL)
     return log_path

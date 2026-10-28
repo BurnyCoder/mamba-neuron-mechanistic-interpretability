@@ -28,15 +28,15 @@ log = get_logger(__name__)
 EditFn = Callable[[torch.Tensor], torch.Tensor]  # maps a (batch, seq, width) activation to its edited version
 
 
-def load_model(name: str, dtype: str = "bfloat16", device: str = "cuda", use_mambapy: bool = False):
+def load_model(name: str, dtype: str = "bfloat16", device: str = "cuda"):
     """Load a HF Mamba causal LM + tokenizer in eval mode on `device`.
 
     `dtype=` is the transformers-5 spelling of the former `torch_dtype=` argument
-    (https://huggingface.co/docs/transformers/main_classes/model#transformers.PreTrainedModel.from_pretrained);
-    `use_mambapy` overrides the matching `MambaConfig` field (parallel scan from https://github.com/alxndrTL/mamba.py).
+    (https://huggingface.co/docs/transformers/main_classes/model#transformers.PreTrainedModel.from_pretrained).
+    Without the `mamba_ssm` CUDA kernels (unavailable on Windows) HF runs its reference sequential torch scan.
     """
     tokenizer = AutoTokenizer.from_pretrained(name)  # GPT-NeoX-20B BPE tokenizer for state-spaces/* models
-    model = AutoModelForCausalLM.from_pretrained(name, dtype=getattr(torch, dtype), use_mambapy=use_mambapy)
+    model = AutoModelForCausalLM.from_pretrained(name, dtype=getattr(torch, dtype))
     model.to(device).eval()  # eval(): no dropout and, importantly, no fused training-only path in MambaMixer
     log.info("Loaded %s (%s, %s): %d layers x %d neurons", name, dtype, device, n_layers(model), n_neurons(model))
     return model, tokenizer
@@ -128,6 +128,27 @@ def add_vector_edit(vector: torch.Tensor) -> EditFn:
     def fn(h: torch.Tensor) -> torch.Tensor:
         return h + vector.to(dtype=h.dtype, device=h.device)
     return fn
+
+
+class _StopForward(Exception):
+    """Raised from a hook to abort the forward pass once the needed layer has been recorded."""
+
+
+@torch.no_grad()
+def record_layer(model, input_ids: torch.Tensor, layer: int) -> torch.Tensor:
+    """(batch, seq, d_inner) activations of one layer; later layers are skipped by aborting the forward pass."""
+    store: dict[str, torch.Tensor] = {}
+
+    def sink(_layer, a):
+        store["a"] = a
+        raise _StopForward  # exceptions raised in hooks propagate out of model(...), skipping the remaining blocks
+
+    try:
+        with Hooks(model).record_neurons([layer], sink):
+            model(input_ids=input_ids, use_cache=False)
+    except _StopForward:
+        pass
+    return store["a"]
 
 
 @torch.no_grad()

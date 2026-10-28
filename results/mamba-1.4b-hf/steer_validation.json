@@ -1,0 +1,14 @@
+{
+ "concept": {
+  "kappa": 0.7948717948717948,
+  "exact_agreement": 0.875,
+  "manual_mean": 0.975,
+  "llm_mean": 0.85
+ },
+ "fluency": {
+  "kappa": 0.34426229508196715,
+  "exact_agreement": 0.7,
+  "manual_mean": 0.65,
+  "llm_mean": 0.25
+ }
+}

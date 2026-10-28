@@ -55,3 +55,13 @@ def test_windows_never_mix_documents():
     assert w.doc.tolist() == [0, 0, 2, 2, 2]  # doc 1 is too short for one window; doc 2 capped at 3 windows
     for row, d in zip(w.tokens, w.doc):
         assert all(t // 100 == d for t in row[1:])  # every token of a window comes from its own document
+
+
+def test_decode_tokens_keeps_multibyte_characters(small_model):
+    from mamba_neurons.data import decode_tokens
+
+    _, tok = small_model
+    text = "it’s show business — the “café” 😀 naïve 東京"
+    ids = tok(text).input_ids
+    pieces = decode_tokens(tok, ids)
+    assert "".join(pieces) == tok.decode(ids) and "\ufffd" not in "".join(pieces) and len(pieces) == len(ids)

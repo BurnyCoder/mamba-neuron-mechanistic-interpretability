@@ -1,0 +1,32 @@
+[
+ {
+  "key": "neuron:L30:N2121:+",
+  "layer": 30,
+  "neuron": 2121,
+  "sign": 1,
+  "label": "The neuron fires on tokens immediately preceding the word 'as'.",
+  "concept": "the word 'as'",
+  "best_level": 2,
+  "hm_gain": 0.4
+ },
+ {
+  "key": "neuron:L28:N953:+",
+  "layer": 28,
+  "neuron": 953,
+  "sign": 1,
+  "label": "The neuron fires on tokens immediately preceding an opening square bracket.",
+  "concept": "opening square brackets",
+  "best_level": 5,
+  "hm_gain": 0.3
+ },
+ {
+  "key": "neuron:L32:N2669:+",
+  "layer": 32,
+  "neuron": 2669,
+  "sign": 1,
+  "label": "The neuron fires when the word 'set' appears in code or text.",
+  "concept": "mentions of the word 'set'",
+  "best_level": 2,
+  "hm_gain": 0.26666666666666666
+ }
+]

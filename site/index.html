@@ -1,0 +1,40 @@
+<!doctype html>
+<!-- Static neuron viewer for the Mamba-1.4B neuron atlas. Data comes from site/data/*.json written by
+     `python -m mamba_neurons.pipeline --phases export`. Layout inspired by Goodfire's neuron pages
+     (https://already-clean.goodfire.com/) and Neuroscope (https://neuroscope.io/). -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mamba Neuron Microscope</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Mamba neuron microscope</h1>
+    <p class="sub">Single neurons of <code id="model-name">state-spaces/mamba-1.4b-hf</code>: what makes them fire, what they write, and what happens when you turn one up.
+      <a href="https://github.com/BurnyCoder/mamba-neuron-mechanistic-interpretability">Code and paper</a></p>
+  </header>
+  <main>
+    <section id="summary" class="cards"></section>
+    <section class="layout">
+      <aside id="browser">
+        <div class="filters">
+          <input id="search" type="search" placeholder="Search labels or L12 N345" aria-label="Search">
+          <select id="group" aria-label="Group">
+            <option value="steer">Steering screened</option>
+            <option value="candidate">Formula candidates</option>
+            <option value="domain">Domain neurons</option>
+            <option value="audit">Random audit sample</option>
+            <option value="all">All labelled poles</option>
+          </select>
+          <label class="ba">min detection acc <input id="minba" type="range" min="0.5" max="1" step="0.05" value="0.5"><span id="minba-v">0.50</span></label>
+        </div>
+        <ol id="list"></ol>
+      </aside>
+      <article id="detail"><p class="muted">Pick a neuron pole on the left.</p></article>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
