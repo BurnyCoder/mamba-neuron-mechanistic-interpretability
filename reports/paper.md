@@ -181,7 +181,15 @@ Results for the three H2 poles (Table 3):
 | L28 N953 ("[") | 0.0018 | 0.0014 | 0.048 | 0.00 | 0.74 | 100% |
 | L32 N2669 ("set") | 0.0123 | 0.0069 | 0.048 | 0.11 | 0.84 | 100% |
 
-SURVEY_RESULT_PLACEHOLDER
+**Post-hoc truncation survey (Figure 3).** Across all 39 screened poles, the median activation kept with only 4 tokens of context falls with depth:
+- **Layers 0–1:** 0.92. Early token detectors are local, which also shows that short inputs do not suppress activations per se.
+- **Layers 20–29:** 0.10.
+- **Layers 30–39:** 0.18.
+- **Layers 40–47:** 0.24.
+
+The layer-27–32 prediction neurons are the most long-range: only 41–70% of their activation is recovered with 32 tokens. In Mamba-1.4B, then, mid-to-late neurons integrate context through the recurrent state rather than through the 4-token convolution. This is a property that transformer MLP neurons, which read an attention-mixed residual stream, do not expose in the same way.
+
+![**Figure 3.** Fraction of a neuron's activation retained with only the last k tokens of context (k = 4 is Mamba's convolution window), for 39 clean candidate poles, by layer.](../results/mamba-1.4b-hf/figures/truncation_survey.png)
 
 ## 5 Discussion
 DISCUSSION_PLACEHOLDER
