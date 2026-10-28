@@ -61,7 +61,7 @@ def steer_sample(res) -> None:
     gens = load_json(res / "screen.json")["generations"]
     rng = np.random.default_rng(SEED)
     picks = rng.choice(len(gens), N_ITEMS, replace=False)
-    labels = {p["key"]: p["label"] for p in load_json(res / "screen.json")["summary"]}
+    labels = {p["key"]: p["concept"] for p in load_json(res / "screen.json")["summary"]}  # the steering concept the judge saw
     items = [{"id": n, "concept": labels[gens[i]["key"]], "text": gens[i]["text"]} for n, i in enumerate(picks)]
     hidden = {str(n): {"concept": gens[i]["concept"], "fluency": gens[i]["fluency"], "level": gens[i]["level"]} for n, i in enumerate(picks)}
     save_json(items, res / "steer_validation_items.json")
