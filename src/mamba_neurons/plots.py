@@ -53,23 +53,38 @@ def fig_h1(h1: dict, autointerp: dict, path) -> None:
     _save(fig, path)
 
 
-def fig_dose_response(screen: dict, keys: list[str], path) -> None:
-    """Concept and fluency judge scores (0-2) vs clamp level for the confirmed poles (screen data, 10 prompts)."""
-    poles = [s for s in screen["summary"] if s["key"] in keys]
-    fig, axes = plt.subplots(1, len(poles), figsize=(3.6 * len(poles), 3.2), squeeze=False)
+def merge_levels(screens: list[dict]) -> dict[str, dict]:
+    """{pole key: summary with the `levels` of every given sweep merged} (pre-registered + post-hoc doses)."""
+    out: dict[str, dict] = {}
+    for sc in screens:
+        for row in sc["summary"]:
+            merged = out.setdefault(row["key"], {**row, "levels": {}})
+            merged["levels"].update({str(float(c)): v for c, v in row["levels"].items()})
+    return out
+
+
+def fig_dose_response(screens: list[dict], keys: list[str], path) -> None:
+    """Concept, fluency (0-2) and NLL-free view vs clamp dose for selected poles; x = dose in units of the pole maximum.
+
+    Doses >= 2 are the pre-registered screen, doses < 2 the post-hoc low-dose sweep (10 prompts each, prompt set A).
+    """
+    merged = merge_levels(screens)
+    poles = [merged[k] for k in keys if k in merged]
+    fig, axes = plt.subplots(1, len(poles), figsize=(3.6 * len(poles), 3.3), squeeze=False, sharey=True)
     for ax, s in zip(axes[0], poles):
-        levels = sorted(int(c) for c in s["levels"])
+        levels = sorted(float(c) for c in s["levels"])
         x = np.arange(len(levels))
         for metric, color in (("concept", BLUE), ("fluency", ORANGE)):
             ys = [s["levels"][str(c)][metric] for c in levels]
             ax.plot(x, ys, color=color, linewidth=2, marker="o", markersize=5, label=metric)
-            ax.text(x[-1] + 0.1, ys[-1], metric, color=color, va="center", fontsize=9)
-        ax.set_xticks(x, ["off" if c == 0 else f"{c}×" for c in levels])
+        ax.set_xticks(x, ["off" if c == 0 else f"{c:g}×" for c in levels], fontsize=8)
+        if 2.0 in levels:
+            ax.axvline(levels.index(2.0) - 0.5, color=GRAY, linestyle=":", linewidth=1)  # post hoc | pre-registered
         ax.set_ylim(-0.05, 2.05)
-        ax.set_xlabel("clamp (× max activation)")
-        ax.set_title(f"L{s['layer']} N{s['neuron']} ({'+' if s['sign'] > 0 else '−'})\n{s['label'][:48]}", fontsize=9)
+        ax.set_xlabel("clamp (× pole max)")
+        ax.set_title(f"L{s['layer']} N{s['neuron']}: {s['concept'][:40]}", fontsize=9)
     axes[0][0].set_ylabel("judge score (0–2)")
-    axes[0][0].legend(frameon=False, loc="upper left")
+    axes[0][-1].legend(frameon=False, loc="center right")
     _save(fig, path)
 
 

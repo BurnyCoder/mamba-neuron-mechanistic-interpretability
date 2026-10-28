@@ -38,7 +38,8 @@ def phase_plots(settings) -> None:
         plots.fig_h1(load_json(res / "h1.json"), auto, out / "h1_clean_rate.png")
         plots.fig_layers(auto, 1 + max(r["unit"]["layer"] for r in auto.values()), out / "layers_detection.png")
     if have("screen") and have("confirm_plan"):
-        plots.fig_dose_response(load_json(res / "screen.json"), [p["key"] for p in load_json(res / "confirm_plan.json")], out / "dose_response.png")
+        screens = [load_json(res / f"{n}.json") for n in ("screen", "screen_low") if have(n)]
+        plots.fig_dose_response(screens, [p["key"] for p in load_json(res / "confirm_plan.json")], out / "dose_response.png")
     if have("h2"):
         plots.fig_h2(load_json(res / "h2.json")["results"], out / "h2_conditions.png")
     if have("h3_mechanism"):
