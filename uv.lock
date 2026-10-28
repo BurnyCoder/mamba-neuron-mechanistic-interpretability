@@ -910,7 +910,6 @@ source = { editable = "." }
 dependencies = [
     { name = "datasets" },
     { name = "huggingface-hub" },
-    { name = "mambapy" },
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "ollama" },
@@ -934,7 +933,6 @@ dev = [
 requires-dist = [
     { name = "datasets", specifier = ">=5.1.0" },
     { name = "huggingface-hub", specifier = ">=2.3.0" },
-    { name = "mambapy", specifier = ">=1.2.0" },
     { name = "matplotlib", specifier = ">=3.11.2" },
     { name = "numpy", specifier = ">=2.5.4" },
     { name = "ollama", specifier = ">=0.6.3" },
@@ -951,19 +949,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = ">=9.2.0" }]
-
-[[package]]
-name = "mambapy"
-version = "1.2.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "torch", version = "2.14.1", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux' and sys_platform != 'win32'" },
-    { name = "torch", version = "2.14.1+cu130", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/92/4e/b0c2310e8bb6be1212aae87bb0493fc7b0d6b79efee86f9bdecebbf21739/mambapy-1.2.0.tar.gz", hash = "sha256:594944bf59dc148b739cc63b7f5aea44d41c94949be5b7293529a199883ff744", size = 37645, upload-time = "2024-07-31T12:00:28.855Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/5a/fa/45873bcff2bd443a48210d4889da03d7355df97e760141e94b624a838b36/mambapy-1.2.0-py3-none-any.whl", hash = "sha256:37372ae2b13621beb5f7d60c486efdedcd21f79a2608e3d5f47b937f3196c282", size = 40117, upload-time = "2024-07-31T12:00:27.064Z" },
-]
 
 [[package]]
 name = "markdown-it-py"
