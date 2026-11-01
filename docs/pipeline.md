@@ -34,7 +34,7 @@
 
 Helper scripts:
 - `scripts/compare_labelers.py`: labeller choice on smoke data.
-- `scripts/judge_validation.py`: Cohen's κ against blind ratings.
+- `scripts/judge_validation.py`: Cohen's κ (with item-bootstrap CIs) against reference ratings made by Claude Code from item files without the answers.
 - `scripts/screenshot_viewer.py` and `scripts/dose_gif.py`: README images.
 - `scripts/build_paper.py`: Markdown → PDF.
 

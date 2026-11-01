@@ -30,13 +30,17 @@ The first two rows ran with the promoted-token block accidentally missing from t
 
 The difference in clean rate is **+1.6 points (95% unit-bootstrap CI −5.7 to +8.3), one-sided Fisher p = 0.39**. The pre-registered criterion fails, so we cannot claim that neurons are more *interpretable by this pipeline* than random directions.
 
-**Post hoc, not pre-registered:**
-- **Mean BA.** It is 0.03 higher for neurons, with barely overlapping CIs. Treat this as suggestive at most.
+The CI rules out a clean-rate advantage larger than 8.3 points under this instrument. It does not show that there is no difference.
+
+**Post hoc, not pre-registered** (added by the 2026-11-01 independent audit, amendment 9; `h1.json` → `posthoc`):
+- **Mean BA.** It is higher for neurons by **+0.034 (unit-cluster bootstrap 95% CI 0.003 to 0.065)**, one-sided Mann-Whitney p = 0.0015 on per-unit means. The 0.8 threshold dichotomises a noisy 20-snippet score and hides this small difference.
+- **Other thresholds.** The clean rate (neurons vs directions) is 55.7% vs 40.1% at ≥ 0.6, 29.2% vs 22.4% at ≥ 0.7, 15.1% vs 13.5% at ≥ 0.8, and 4.2% vs 7.3% at ≥ 0.9.
 - **By depth.** Neurons stay flat (0.63 / 0.60 / 0.62 mean BA for layers 0–15 / 16–31 / 32–47). Random directions degrade (0.63 / 0.56 / 0.56). The neuron advantage appears only in the middle and late layers.
 - **By pole.** Neuron positive poles: 0.625 mean BA, 18 clean. Negative poles: 0.608, 11 clean.
 
 **Judge validity (pre-registered check): fails the bar.**
-- **Agreement.** On 40 randomly sampled detection decisions, rated blind by Claude Code (the agent that wrote this project, *not* a human), agreement with the LLM is κ = **0.55**, below the pre-registered 0.6.
+- **Agreement.** On 40 randomly sampled detection decisions, agreement with the LLM is κ = **0.55** (item-bootstrap 95% CI 0.22–0.82), below the pre-registered 0.6. The reference ratings were made by Claude Code, the agent that wrote this project, *not* a human. It worked from an item file without the answers, but it had file access to them, so blinding rests on file separation only. The pre-registration said these ratings would be made by hand (deviation declared in amendment 9). With n = 40 the CI is so wide that the pass/fail outcome itself is uncertain.
+- **Consequence.** By the pre-registration the judge was not accepted, so H1 is best read as inconclusive rather than falsified.
 - **Accuracy vs ground truth.** The manual ratings got 0.78 and the LLM 0.70.
 - **Why the bar fails.** Many labels are vague ("tokens containing the letter 'i'"), and both raters then call almost any snippet a match.
 

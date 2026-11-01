@@ -78,8 +78,9 @@ A *neuron* (layer l, index i) is coordinate i of the gated SSM output `a = y * S
 
 Text snippets are short excerpts of the Pile (Gao et al. 2020) via NeelNanda/pile-10k (licence bigscience-bloom-rail-1.0)
 and keep the licences of their original sources. Labels and judge scores come from a local LLM and are noisy. Agreement
-with blind reference ratings, which were made by Claude Code and not by a human annotator: Cohen's kappa
-{kappa_detect:.2f} for detection, {kappa_concept:.2f} for steering concept and {kappa_fluency:.2f} for steering fluency.
+with reference ratings, which were made by Claude Code (from item files without the answers) and not by a human
+annotator: Cohen's kappa {kappa_detect:.2f} for detection, {kappa_concept:.2f} for steering concept and
+{kappa_fluency:.2f} for steering fluency. The fluency judge is unreliable on fluent text (see reports/audit.md).
 """
 
 

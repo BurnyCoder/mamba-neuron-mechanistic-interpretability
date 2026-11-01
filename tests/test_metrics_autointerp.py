@@ -73,3 +73,46 @@ def test_detect_scores_and_handles_malformed_reply():
 def test_cluster_bootstrap_of_rates_matches_plain_rates():
     d, lo, hi = M.bootstrap_diff_of_props([1, 1, 0, 0], [0, 0, 0, 1], clusters1=[0, 0, 1, 1], clusters2=[5, 5, 6, 6])
     assert d == pytest.approx(0.25) and lo <= d <= hi
+
+
+def test_bootstrap_p_matches_the_cluster_ci():
+    rng = np.random.default_rng(2)
+    clusters = np.repeat(np.arange(40), 2)
+    b = rng.normal(0, 1, 80)
+    assert M.bootstrap_p(b + 1.0, b + rng.normal(0, 0.1, 80), clusters) < 0.001  # clear shift
+    assert M.bootstrap_p(b, b, clusters) == 1.0  # every paired difference is 0
+    a = b + rng.normal(0, 1, 80)
+    _, lo, hi = M.cluster_bootstrap_diff(a, b, clusters)
+    assert (M.bootstrap_p(a, b, clusters) < 0.05) == (lo > 0 or hi < 0)  # same resamples as the CI
+
+
+def test_kappa_ci_brackets_kappa():
+    assert M.kappa_ci([0, 1] * 20, [0, 1] * 20) == pytest.approx((1.0, 1.0))
+    rng = np.random.default_rng(3)
+    r1 = rng.integers(0, 3, 60)
+    r2 = np.where(rng.random(60) < 0.7, r1, rng.integers(0, 3, 60))
+    lo, hi = M.kappa_ci(r1, r2)
+    assert lo < M.cohen_kappa(list(r1), list(r2)) < hi and hi - lo > 0.1
+
+
+def test_count_word_and_mannwhitney():
+    assert M.count_word("As far as I know, he has it as", " as") == 3  # whole words, case-insensitive
+    assert M.count_word("see [1] and [a]", "[") == 2  # a non-word token is counted as a substring
+    assert M.mannwhitney_greater([3, 4, 5, 6], [0, 1, 2, 3]) < 0.05 < M.mannwhitney_greater([0, 1, 2, 3], [3, 4, 5, 6])
+
+
+def test_h1_posthoc_mean_ba_and_thresholds(settings, tmp_path):
+    from mamba_neurons.jsonio import load_json, save_json
+    from mamba_neurons.phases.interp import phase_h1
+
+    s = settings.with_overrides(results_dir=tmp_path)
+    ba = {"neuron": [0.9, 0.7, 0.6, 0.6, 0.85, 0.65, 0.7, 0.5], "direction": [0.5, 0.5, 0.6, 0.4, 0.85, 0.5, 0.55, 0.5]}
+    res = {f"{k}:L{j}:+{p}": {"unit": {"kind": k, "layer": j, "index": 0, "sign": 1 - 2 * p, "group": "audit"},
+                               "balanced_accuracy": b, "valid": True}
+           for k, bs in ba.items() for n, b in enumerate(bs) for j, p in [divmod(n, 2)]}
+    save_json(res, s.results_path() / "autointerp.json")
+    phase_h1(s)
+    post = load_json(s.results_path() / "h1.json")["posthoc"]
+    assert post["mean_ba_diff"]["diff"] == pytest.approx(np.mean(ba["neuron"]) - np.mean(ba["direction"]))
+    assert post["mean_ba_diff"]["mannwhitney_one_sided_p"] < 0.2
+    assert post["clean_rate_by_threshold"]["0.6"] == pytest.approx([7 / 8, 2 / 8])
