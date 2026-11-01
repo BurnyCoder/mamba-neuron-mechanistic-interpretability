@@ -165,9 +165,9 @@ def fig_layers(autointerp: dict, n_layers: int, path) -> None:
 
 
 def fig_truncation_survey(survey: dict, path) -> None:
-    """Activation kept with only the last k tokens (k = 4: conv window; k = 16) vs layer, one dot per screened pole."""
+    """Activation kept with only the last k tokens (k = 4: one block's conv kernel; k = 16) vs layer, one dot per screened pole."""
     fig, ax = plt.subplots(figsize=(6, 3.2))
-    for k, color, label in (("4", BLUE, "k = 4 (conv window)"), ("16", ORANGE, "k = 16")):
+    for k, color, label in (("4", BLUE, "k = 4 (one block's conv kernel)"), ("16", ORANGE, "k = 16")):
         xs = [v["layer"] for v in survey.values()]
         ys = [min(max(v["ratio"][k], -0.2), 1.5) for v in survey.values()]  # clip outliers for display only
         ax.scatter(xs, ys, color=color, s=18, label=label)

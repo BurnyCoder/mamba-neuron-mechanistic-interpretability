@@ -6,10 +6,11 @@ Local explanation:
     next token) at given positions (causal necessity; zero-ablation as in Gurnee et al. 2024 https://arxiv.org/abs/2401.12181).
   * `factor_split` - decompose a = y * SiLU(z) at firings: is the pole driven by the gate z or by the SSM output y?
     (the "double-negative regime" is y<0 and z<0, where SiLU(z)<0 makes a>0; cf. Goodfire's SwiGLU note).
-  * `context_truncation` - re-run each firing with only the last k tokens of context: k<=4 sits inside Mamba's
-    causal conv window (kernel 4), larger k needs the recurrent SSM state, so the curve tells local vs long-range.
-  * `patching_effect` - counterfactual activation patching: copy the neuron's firing value into non-firing contexts
-    (last position only) and measure the change in log-prob of its top promoted tokens (Meng et al. 2022,
+  * `context_truncation` - re-run each firing with only the last k tokens of context, so the curve tells how much
+    context a firing needs. k = 4 is one block's causal conv kernel, but convolutions stacked over layers reach back
+    3*l + 4 tokens at layer l even without the SSM, so this test does not say *which* path carries the context.
+  * `patching_effect` - counterfactual activation patching: set the neuron to a firing value at one random held-out
+    position per row and measure the change in log-prob of its top promoted tokens there (Meng et al. 2022,
     https://arxiv.org/abs/2202.05262; Heimersheim & Nanda 2024 https://arxiv.org/abs/2404.15255).
 Global context: H3 (pre-registered) + exploratory mechanism results reported in reports/ and the viewer.
 """
