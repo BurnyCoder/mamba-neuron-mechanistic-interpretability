@@ -129,7 +129,7 @@ The low-dose regime injects most of the concept while keeping most of the judged
 | | prompting | 0.107 [0.040, 0.187] | 0.44 | 0.46 | 0.93 | 1.39 |
 | | 80 random neurons | mean 0.000, max 0.000 | mean 0.00, max 0.20 | | | |
 
-| Pole | Clamp − unsteered HM [95% CI] | p vs null (HM) | Holm p | Judged fluency non-inferior? | distinct-2 ≥ 0.9 × unsteered? | **H2b** |
+| Pole | Clamp − unsteered HM [95% CI] | p vs null (HM) | Holm p | Judged fluency ≥ unsteered − 0.2? (point estimates) | distinct-2 ≥ 0.9 × unsteered? (point estimates) | **H2b** (pre-registered rule) |
 |---|---|---|---|---|---|---|
 | L30 N815 | +0.403 [0.253, 0.560] | 1/81 | **0.037** | ✓ (0.45 ≥ 0.28) | ✓ (0.90 ≥ 0.84) | **supported** |
 | L30 N2121 | +0.163 [0.070, 0.263] | 1/81 | **0.037** | ✓ (0.32 ≥ 0.21) | ✓ (0.92 ≥ 0.84) | **supported** |
