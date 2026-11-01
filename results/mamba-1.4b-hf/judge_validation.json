@@ -1,6 +1,10 @@
 {
  "n": 40,
  "kappa_manual_vs_llm": 0.5483870967741935,
+ "kappa_ci95": [
+  0.221556886227545,
+  0.8170731707317075
+ ],
  "accuracy_manual_vs_truth": 0.775,
  "accuracy_llm_vs_truth": 0.7,
  "agreement_manual_llm": 0.825,
