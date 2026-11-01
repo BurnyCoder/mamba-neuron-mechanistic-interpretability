@@ -97,7 +97,7 @@ function confirmTable(conf, title) {
   const order = ["unsteered", "clamp", "add", "diffmean", "prompting"];
   const null_ = d.confirm.random_null_hm;
   const rows = order.filter((k) => c[k]).map((k) => `<tr><td>${k}</td><td>${fmt(c[k].hm)} [${fmt(c[k].hm_ci95[0])}, ${fmt(c[k].hm_ci95[1])}]</td><td>${fmt(c[k].concept)}</td><td>${fmt(c[k].fluency)}</td><td>${fmt(c[k].nll)}</td><td>${fmt(c[k].distinct2)}</td></tr>`).join("");
-  return `<h4>${title}: clamp at ${conf.level}× max, 50 neutral prompts × 2 seeds</h4>
+  return `<h4>${title}: clamp at ${conf.level}× max, ${conf.n_prompts ?? 50} neutral prompts × 2 seeds</h4>
     <table><tr><th>condition</th><th>harmonic mean [95% CI]</th><th>concept</th><th>fluency</th><th>NLL</th><th>distinct-2</th></tr>${rows}
     <tr><td>${null_.length} random neurons, same relative clamp</td><td>mean ${fmt(null_.reduce((a, b) => a + b, 0) / null_.length)} · max ${fmt(Math.max(...null_))}</td><td colspan="4" class="muted">null distribution</td></tr></table>
     <p>Clamp − unsteered = ${fmt(d.confirm.clamp_minus_unsteered.diff)} [${fmt(d.confirm.clamp_minus_unsteered.ci95[0])}, ${fmt(d.confirm.clamp_minus_unsteered.ci95[1])}],

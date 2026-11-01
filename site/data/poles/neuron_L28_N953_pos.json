@@ -4012,6 +4012,7 @@
   "label": "The neuron fires on tokens immediately preceding an opening square bracket.",
   "concept": "opening square brackets",
   "level": 5,
+  "n_prompts": 50,
   "conditions": {
    "unsteered": {
     "concept": 0.05,
@@ -4324,6 +4325,20 @@
    ]
   },
   "p_vs_random_null": 0.07407407407407407,
+  "clamp_minus_prompting": {
+   "diff": 0.06999999999999999,
+   "ci95": [
+    -0.006666666666666665,
+    0.15666666666666665
+   ]
+  },
+  "clamp_minus_diffmean": {
+   "diff": 0.09333333333333332,
+   "ci95": [
+    0.026666666666666665,
+    0.1733333333333333
+   ]
+  },
   "p_holm": 0.07407407407407407,
   "verdict_absolute_fluency": false,
   "verdict_noninferior_fluency": false,
