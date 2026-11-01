@@ -29,7 +29,7 @@ All confirmatory tests are pre-registered ([reports/preregistration.md](reports/
   - L43 N2475 fires before *each other*.
   - L36 N109 fires inside email addresses.
 - **Positive: turning one neuron up injects its concept, specifically.**
-  - In the pre-registered H2 confirmation on 50 fresh prompts (47 for "set") × 2 seeds, clamping raised the concept score above **all 80 random same-layer neurons** clamped at the same relative dose, for all 3 neurons (p = 1/81).
+  - In the pre-registered H2 confirmation on 50 fresh prompts (47 for "set") × 2 seeds, clamping raised the concept score above **all 80 random same-layer neurons** clamped at the same relative dose, for all 3 neurons (p = 1/81, Holm 0.037).
   - On the primary metric it also beat prompting for "as" and "set" (post-hoc paired CI excludes 0). For "[" the difference is +0.07 [−0.01, +0.16].
   - Best neuron: **L30 N2121, the "as" neuron**: "…let your children know you are **as** proud of them **as** they are…" [Report 3](reports/experiment_03_steering_h2.md)
 - **Negative: at the pre-registered doses (≥ 2× the neuron's maximum), text degenerates.** "all all all …", "@@@@". **H2 is not supported**, because the absolute fluency criterion fails. DiffMean at the same norm degenerates even more (distinct-2 0.03–0.17).

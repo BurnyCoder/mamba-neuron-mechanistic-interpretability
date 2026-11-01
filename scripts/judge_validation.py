@@ -1,13 +1,14 @@
-"""Validate the local-LLM detection judge against independent manual ratings (pre-registration, H1 "Judge validity").
+"""Validate the local-LLM judges against reference ratings (pre-registration, H1 "Judge validity"; amendment 9: the
+reference ratings were made by Claude Code from the item files, not by a human).
 
 Usage:
-  uv run python scripts/judge_validation.py sample   # writes results/<model>/judge_validation_items.json (blind: no answers)
+  uv run python scripts/judge_validation.py sample   # writes results/<model>/judge_validation_items.json (no answers)
   (rate every item 0/1 in results/<model>/judge_validation_ratings.json as {"<id>": 0 or 1})
-  uv run python scripts/judge_validation.py score    # Cohen's kappa (manual vs LLM) and both raters' accuracy vs truth
+  uv run python scripts/judge_validation.py score    # Cohen's kappa (reference vs LLM) and both raters' accuracy vs truth
   uv run python scripts/judge_validation.py steer_sample / steer_score   # same for the steering judge (concept, fluency 0-2)
 Local explanation: 40 (explanation, snippet) detection decisions are sampled with a fixed seed from autointerp.json;
 the rater sees only the explanation and the plain snippet. Ground truth = whether the snippet was a top firing.
-Global context: the judge is accepted if kappa >= 0.6 ("substantial", Landis & Koch 1977).
+Global context: the judge is accepted if kappa >= 0.6 (pre-registered bar; Landis & Koch 1977 call 0.61-0.80 "substantial").
 """
 
 import json
@@ -58,7 +59,7 @@ def score(res) -> None:
 
 
 def steer_sample(res) -> None:
-    """40 screen generations (seeded, stratified over clamp levels) shown blind: concept description + text only."""
+    """40 screen generations (seeded, stratified over clamp levels) shown without the judge's ratings: concept + text only."""
     gens = load_json(res / "screen.json")["generations"]
     rng = np.random.default_rng(SEED)
     picks = rng.choice(len(gens), N_ITEMS, replace=False)
@@ -70,7 +71,7 @@ def steer_sample(res) -> None:
 
 
 def steer_score(res) -> None:
-    """Cohen's kappa between blind manual and LLM 0-2 ratings, per metric, plus exact agreement.
+    """Cohen's kappa between reference and LLM 0-2 ratings, per metric, plus exact agreement.
 
     Post hoc (2026-11-01 audit): an item-bootstrap CI of kappa and both raters' means per clamp level, which shows
     where the judge was validated (no item lies in the 0.25-1x regime of H2b).
