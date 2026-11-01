@@ -17,7 +17,8 @@ import numpy as np
 from ..judge import rate_concept, rate_fluency, steering_concept
 from ..llm import LocalLLM
 from ..logging_utils import get_logger
-from ..metrics import cluster_bootstrap_diff, cluster_bootstrap_mean, distinct_n, empirical_p, harmonic_mean, holm
+from ..metrics import (bootstrap_p, cluster_bootstrap_diff, cluster_bootstrap_mean, count_word, distinct_n, empirical_p,
+                       harmonic_mean, holm)
 from ..model import load_model, n_neurons, record_layer
 from ..steer import (add_setup, clamp_setup, continuation_nll, diffmean_vector, generate, neutral_prompts,
                      pole_values, residual_budget, vector_setup)
@@ -215,11 +216,73 @@ def _confirm_judge(settings, plan_name: str, gen_name: str, out_name: str, nonin
     llm = LocalLLM(settings.ollama_host, settings.llm_model, num_ctx=JUDGE_CTX)
     _judge(llm, rows, lambda r: plan[r["key"]]["concept"])
     llm.unload()
-    _confirm_stats(settings, rows, plan, out_name, noninferiority)
+    _confirm_stats(settings, rows, plan, out_name, noninferiority, _target_words(settings, plan))
 
 
-def _confirm_stats(settings, rows: list[dict], plan: dict, out_name: str, noninferiority: bool) -> None:
-    """Pre-registered statistics on judged confirmation rows (no LLM calls), saved to results/<out_name>.json."""
+def _target_words(settings, plan: dict) -> dict[str, str]:
+    """Each planned pole's top promoted token (from the screen summary): the word counted by the judge-free check."""
+    summary = {s["key"]: s for s in load_json(settings.results_path() / "screen.json")["summary"]}
+    return {key: summary[key]["promoted_tokens"][0] for key in plan}  # formula candidates store their promoted tokens
+
+
+def _posthoc_audit(by: dict, word: str, seed: int) -> dict:
+    """POST HOC (2026-11-01 independent audit, pre-registration amendment 9): robustness statistics for one pole.
+
+    * clamp - unsteered paired CIs of fluency, distinct-2 and NLL, and a CI-based non-inferiority verdict: lower CI
+      bounds of (fluency_clamp - fluency_unsteered) >= -0.2 and of (distinct2_clamp - 0.9 * distinct2_unsteered) >= 0,
+      the pre-registered margins tested on CIs instead of point estimates (Piaggio et al. 2012,
+      https://doi.org/10.1001/jama.2012.87802);
+    * judge-free concept score: occurrences of the pole's top promoted word per generation, against the null;
+    * like-for-like null: the target scored only on the null's own prompts and seed (the null has 10 generations per
+      neuron, the target 100);
+    * bootstrap p-values of the clamp-vs-baseline HM differences (Holm across poles is applied by the caller).
+    """
+    order = lambda rs: sorted(rs, key=lambda r: (r["seed"], r["prompt_idx"]))  # pair identical prompt + seed
+    clamp, unst = order(by["clamp"]), order(by["unsteered"])
+    clusters = [r["prompt_idx"] for r in clamp]
+    count = lambda rs: [count_word(r["text"], word) for r in rs]
+
+    def diff(a, b) -> dict:
+        """Paired clamp - unsteered difference with its prompt-cluster bootstrap CI."""
+        d = cluster_bootstrap_diff(a, b, clusters, seed=seed)
+        return {"diff": d[0], "ci95": [d[1], d[2]]}
+
+    paired ={m: diff([r[m] for r in clamp], [r[m] for r in unst]) for m in ("fluency", "distinct2", "nll")}
+    d2_margin = diff([r["distinct2"] for r in clamp], [0.9 * r["distinct2"] for r in unst])
+    nulls = [rs for name, rs in by.items() if name.startswith("random:")]
+    null_cells = {(r["seed"], r["prompt_idx"]) for rs in nulls for r in rs}
+    sub = [r for r in clamp if (r["seed"], r["prompt_idx"]) in null_cells]  # target on the null's prompts and seed
+    null_hm, null_count = [float(np.mean([r["hm"] for r in rs])) for rs in nulls], [float(np.mean(count(rs))) for rs in nulls]
+    return {
+        "target_word": word.strip(),
+        "clamp_minus_unsteered": paired,
+        "distinct2_clamp_minus_0.9_unsteered": d2_margin,
+        "noninferior_fluency_ci": bool(paired["fluency"]["ci95"][0] >= -0.2 and d2_margin["ci95"][0] >= 0),
+        "word_count": {name: float(np.mean(count(rs))) for name, rs in by.items() if not name.startswith("random:")},
+        "word_count_null": null_count,
+        "word_count_clamp_minus_unsteered": diff(count(clamp), count(unst)),
+        "p_word_count_vs_null": empirical_p(float(np.mean(count(clamp))), null_count),
+        "like_for_like": {"n_generations": len(sub), "clamp_hm": float(np.mean([r["hm"] for r in sub])),
+                          "p_hm_vs_null": empirical_p(float(np.mean([r["hm"] for r in sub])), null_hm),
+                          "clamp_word_count": float(np.mean(count(sub))),
+                          "p_word_count_vs_null": empirical_p(float(np.mean(count(sub))), null_count)},
+        **{f"p_clamp_vs_{base}": bootstrap_p([r["hm"] for r in clamp], [r["hm"] for r in order(by[base])], clusters, seed=seed)
+           for base in ("prompting", "diffmean")},
+    }
+
+
+def _holm_into(blocks: list[dict], field: str, suffix: str = "_holm") -> None:
+    """Holm-adjust `field` across `blocks` (one per pole) and store it next to it as `field + suffix`."""
+    for b, p in zip(blocks, holm([b[field] for b in blocks])):
+        b[field + suffix] = p
+
+
+def _confirm_stats(settings, rows: list[dict], plan: dict, out_name: str, noninferiority: bool,
+                   targets: dict[str, str]) -> None:
+    """Pre-registered statistics on judged confirmation rows (no LLM calls), saved to results/<out_name>.json.
+
+    `targets` maps each pole to the word counted by the post-hoc judge-free check (`_target_words`).
+    """
     results, pvals = {}, []
     for key in plan:
         mine = [r for r in rows if r["key"] == key]
@@ -254,7 +317,15 @@ def _confirm_stats(settings, rows: list[dict], plan: dict, out_name: str, noninf
                         "p_concept_vs_random_null": empirical_p(cond["clamp"]["concept"], [float(np.mean([r["concept"] for r in rs])) for rs in nulls]),
                         "clamp_minus_unsteered": clamp_minus("unsteered"), "p_vs_random_null": p_null,
                         # POST HOC (added in the 2026-11-01 audit): neuron clamp vs the two baselines, same pairing
-                        "clamp_minus_prompting": clamp_minus("prompting"), "clamp_minus_diffmean": clamp_minus("diffmean")}
+                        "clamp_minus_prompting": clamp_minus("prompting"), "clamp_minus_diffmean": clamp_minus("diffmean"),
+                        "posthoc_audit": _posthoc_audit(by, targets[key], settings.seed)}
+    audits = [r["posthoc_audit"] for r in results.values()]  # Holm across the poles of this confirmation
+    _holm_into(audits, "p_word_count_vs_null")
+    for field in ("p_hm_vs_null", "p_word_count_vs_null"):
+        _holm_into([a["like_for_like"] for a in audits], field)
+    cells = [(a, f"p_clamp_vs_{b}") for a in audits for b in ("prompting", "diffmean")]
+    for (a, field), p in zip(cells, holm([a[f] for a, f in cells])):  # one family: every clamp-vs-baseline test
+        a[field + "_holm"] = p
     for key, p_adj in zip(results, holm(pvals)):
         r = results[key]
         r["p_holm"] = p_adj
@@ -275,7 +346,8 @@ def phase_confirm_judge(settings) -> None:
 def _restats(settings, plan_name: str, out_name: str, noninferiority: bool) -> None:
     """Recompute confirmation statistics from the already-judged rows in results/<out_name>.json (no LLM calls)."""
     plan = {p["key"]: p for p in load_json(settings.results_path() / f"{plan_name}.json")}
-    _confirm_stats(settings, load_json(settings.results_path() / f"{out_name}.json")["generations"], plan, out_name, noninferiority)
+    _confirm_stats(settings, load_json(settings.results_path() / f"{out_name}.json")["generations"], plan, out_name,
+                   noninferiority, _target_words(settings, plan))
 
 
 def phase_h2_stats(settings) -> None:
