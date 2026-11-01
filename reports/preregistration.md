@@ -108,3 +108,14 @@ The candidate score is the mean of the three ranks. The top 60 poles go forward,
   3. **Screen prompts.** "Data and leakage control" lists the steering screen under discovery data. Like every neutral prompt, screen prompt set A is the first 16 tokens of held-out documents. Sets A, B and C are disjoint.
   4. **Neutrality filter.** "Below its 90th discovery percentile" is estimated on the first 200 discovery windows (25,600 tokens), not on the whole discovery split.
   5. **κ scale.** On the Landis & Koch scale, "substantial" agreement starts at κ = 0.61, so κ = 0.60 is "moderate". The pre-registered bar of 0.6 is unchanged, and the measured detection κ (0.55) fails it under either reading.
+- **2026-11-01, amendment 9: independent audit (written after all results existed; no test, threshold or verdict changes).** An independent audit of the methodology, the code and the claims (`reports/audit.md`) found one undeclared deviation and added post-hoc robustness analyses. All of them are labelled post hoc wherever they are reported.
+  1. **Declared deviation: judge-validation rater.** "Judge validity" says "I rate about 40 label/snippet decisions by hand". The reference ratings for the detection judge, and for the steering judge, were made by Claude Code, the agent that built the pipeline, from item files that omit the answers. They were not made by a human. The agent had file access to the answers, so blinding rests on file separation only.
+  2. **Post-hoc analyses added**, computed from the stored judged generations and labels; no new model or LLM run:
+     - item-bootstrap CIs for every κ, and per-level judge means;
+     - for H1, the mean balanced-accuracy difference (unit-cluster bootstrap CI, Mann-Whitney) and clean rates at other thresholds;
+     - for H2 and H2b:
+       - paired clamp − unsteered CIs of fluency, distinct-2 and NLL;
+       - the H2b fluency margins tested on CI lower bounds;
+       - a judge-free count of each pole's top promoted token against the same null;
+       - a like-for-like null comparison on the null's own prompts and seed;
+       - Holm-corrected bootstrap p-values for the clamp-vs-baseline comparisons.

@@ -6,20 +6,21 @@ Detailed reports:
 - [experiment_03_steering_h2.md](experiment_03_steering_h2.md): steering screen and confirmation.
 - [experiment_04_mechanism_h3.md](experiment_04_mechanism_h3.md): ablation and mechanism.
 
-Pre-registration and all amendments: [preregistration.md](preregistration.md).
+Pre-registration and all amendments: [preregistration.md](preregistration.md). Independent audit of the methodology and claims (2026-11-01): [audit.md](audit.md).
 
 ## Summary table
 | # | Experiment | What was tested | Method | Data | Main result | Verdict |
 |---|---|---|---|---|---|---|
 | 1 | Atlas | activation shape of all 196,608 neurons vs 96 random directions | streaming moments + top-k poles | 2.32M + 0.65M Pile tokens | median kurtosis 354 vs 6.9; 86% positively skewed; split ρ 0.94–0.999 | descriptive (privileged basis visible in statistics) |
-| 2 | H1 audit | clean-pole rate (LLM label, held-out detection BA ≥ 0.8), neurons vs directions | qwen3.5:9b explain + detect | 192 + 192 poles | 15.1% vs 13.5%, p = 0.39; formula candidates 50% clean | **H1 not supported** (judge vs Claude Code reference ratings κ 0.55) |
+| 2 | H1 audit | clean-pole rate (LLM label, held-out detection BA ≥ 0.8), neurons vs directions | qwen3.5:9b explain + detect | 192 + 192 poles | 15.1% vs 13.5%, p = 0.39; post hoc mean BA +0.034 [0.003, 0.065]; formula candidates 50% clean | **H1 not supported**, inconclusive (judge vs Claude Code reference ratings κ 0.55 [0.22, 0.82], below the bar) |
 | 3a | Screen | clamp 2–20× max on 39 clean poles | AxBench judge | prompt set A | concept 0.08 → 0.82, fluency 0.60 → 0.11 | exploratory |
 | 3b | H2 | 3 poles at screen doses vs 80-neuron null, DiffMean, prompting | as pre-registered | set B, 100 gens/condition (94 for "set") | concept > all 80 random neurons (p = 1/81) for all 3; HM Holm p 0.037/0.074/0.037; fluency < 1.0 | **H2 not supported** (fluency rule) |
 | 3c | Low-dose sweep | clamp 0.25–1× max | same judge | set A | 0.25×: concept 0.52, distinct-2 0.83 | post hoc |
-| 3d | H2b | 3 low-dose poles, non-inferior fluency | pre-registered after 3c | fresh set C | HM 0.46/0.24/0.35 vs 0.06/0.08/0.00; Holm p 0.037 each; fluency non-inferior; post hoc, clamp > prompting and DiffMean except "as" vs DiffMean (n.s.) | **H2b supported (3/3)** |
-| 4a | H3 | zero-ablation drop at top firings vs 20 random neurons | causal ablation | held-out | 0.0018 and 0.012 nats (p = 1/21); "as" −0.003 (p = 0.76) | **2/3 supported** (uncorrected), tiny effects |
-| 4b | Mechanism | gate vs SSM factor; context truncation; patching | interventions | held-out | gate open at all 600 firings of the 3 H2 poles; k ≤ 4 keeps 0–11% of activation; patching ≈ null (null donors stronger) | exploratory |
-| 4c | Truncation survey | k = 4 ratio across 39 poles by depth | interventions | held-out | layers 0–1 (4 poles): 0.92; ≥ 20 (35 poles): 0.10–0.24; shows context need, not the SSM-vs-stacked-conv route | post hoc |
+| 3d | H2b | 3 low-dose poles, non-inferior fluency (point estimates) | pre-registered after 3c | fresh set C | HM 0.46/0.24/0.35 vs 0.06/0.08/0.00; Holm p 0.037 each; target word 2.2/1.0/2.3 per 40 tokens vs ≤ 0.30 for any random neuron; fluency margins met on point estimates, CI-based for 1/3, NLL +0.28–0.51; post hoc, clamp > untuned prompting and DiffMean except "as" vs DiffMean (n.s.) | **H2b supported (3/3)** by its pre-registered rule; fluency preservation not established |
+| 4a | H3 | zero-ablation drop at top firings vs 20 random neurons | causal ablation | held-out | 0.0018 and 0.012 nats (p = 1/21); "as" −0.003 (p = 0.76) | **2/3 supported** (uncorrected; none after Holm), tiny effects |
+| 4b | Mechanism | gate vs SSM factor; context truncation; patching | interventions | held-out | gate open at all 600 firings of the 3 H2 poles (largely forced by SiLU ≥ −0.28; selectivity not tested); k ≤ 4 keeps 0–11% of activation; patching ≈ null (null donors stronger) | exploratory |
+| 4c | Truncation survey | k = 4 ratio across 39 poles by depth | interventions | held-out | layers 0–1 (4 domain poles): 0.92; ≥ 22 (35 poles): 0.10–0.24; shows a need for longer inputs, not separated from a short-input effect, and not the SSM-vs-stacked-conv route | post hoc |
+| 5 | Independent audit | methodology and claims | recomputation from results files, logs and code | all results | no pre-registered verdict changes; several claims reworded ([audit.md](audit.md)) | post hoc |
 
 ## Models involved
 | Model | Role | Architecture | Size | Training data and objective | Notes |
@@ -48,6 +49,8 @@ No model is trained or fine-tuned in this project. Everything is analysis and in
 - **Empirical p-value.** (1 + number of null neurons at least as good) / (1 + number of null neurons).
 - **Holm correction.** Adjusts p-values when several neurons are tested, so the chance of any false positive stays at 5%.
 - **Cluster bootstrap.** Confidence intervals obtained by resampling whole prompts (or units), because generations from the same prompt are correlated.
+- **Non-inferiority.** Showing that a new condition is not worse than a reference by more than a pre-set margin. Normally this is shown when the whole confidence interval of the difference lies above the negative margin ([Piaggio et al. 2012](https://doi.org/10.1001/jama.2012.87802)). The pre-registered H2b rule used point estimates instead.
+- **Judge-free word count.** The number of times a pole's top promoted token appears in a generated continuation: a direct check of single-word concepts that needs no LLM judge.
 - **Cohen's κ.** Agreement between two raters beyond chance: 0 is chance and 1 is perfect. On the Landis & Koch scale, 0.41–0.60 is "moderate" and 0.61–0.80 "substantial". The pre-registered bar was 0.6.
 - **Zero-ablation.** Set a neuron to 0 everywhere and measure how much worse the model predicts the next token where the neuron normally fires.
 - **Context truncation.** Feed only the last k tokens and see how much of the activation is left. Each block's convolution sees 4 tokens, but stacked over layers the convolutions alone reach back 3ℓ + 4 tokens at layer ℓ. A long-context need therefore does not prove that the SSM state carries the context.
