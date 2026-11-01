@@ -1,16 +1,22 @@
 """Statistics and text metrics used by the pre-registered analyses.
 
 Local explanation: thin, tested wrappers around SciPy / statsmodels for confidence intervals (Wilson, cluster
-bootstrap), tests (one-sided Fisher exact, empirical permutation-style p-values, Holm correction), power analysis,
-inter-rater agreement (Cohen's kappa) and generation metrics (AxBench harmonic mean, distinct-n).
+bootstrap), tests (one-sided Fisher exact, Mann-Whitney, empirical permutation-style p-values, bootstrap p, Holm
+correction), power analysis, inter-rater agreement (Cohen's kappa and its bootstrap CI) and generation metrics
+(AxBench harmonic mean, distinct-n, target-word counts).
 Global context: H1 uses `wilson`, `fisher_greater`, `bootstrap_diff_of_props`; H2 uses `cluster_bootstrap_diff`,
-`empirical_p`, `holm`, `harmonic_mean`; judge validation uses `cohen_kappa`.
+`empirical_p`, `holm`, `harmonic_mean`; judge validation uses `cohen_kappa`. The 2026-11-01 audit (amendment 9) adds
+`bootstrap_p`, `mannwhitney_greater`, `kappa_ci` and `count_word` for post-hoc robustness statistics.
 """
 
 from __future__ import annotations
 
+import re
+import warnings
+
 import numpy as np
 from scipy.stats import fisher_exact  # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.fisher_exact.html
+from scipy.stats import mannwhitneyu  # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.mannwhitneyu.html
 from statsmodels.stats.inter_rater import cohens_kappa  # https://www.statsmodels.org/stable/generated/statsmodels.stats.inter_rater.cohens_kappa.html
 from statsmodels.stats.multitest import multipletests  # https://www.statsmodels.org/stable/generated/statsmodels.stats.multitest.multipletests.html
 from statsmodels.stats.power import NormalIndPower  # https://www.statsmodels.org/stable/generated/statsmodels.stats.power.NormalIndPower.html
@@ -30,10 +36,10 @@ def fisher_greater(k1: int, n1: int, k2: int, n2: int) -> float:
 
 def bootstrap_diff_of_props(x1, x2, clusters1=None, clusters2=None, n_boot: int = 10_000, seed: int = 0,
                             alpha: float = 0.05) -> tuple[float, float, float]:
-    """(rate1 - rate2, CI low, CI high) of two independent 0/1 samples, percentile bootstrap.
+    """(mean1 - mean2, CI low, CI high) of two independent samples, percentile bootstrap (0/1 samples give rates).
 
-    With `clusters*` (e.g. the unit id shared by a neuron's two poles) whole clusters are resampled and the rate is
-    sum(successes) / sum(trials) over the resampled clusters.
+    With `clusters*` (e.g. the unit id shared by a neuron's two poles) whole clusters are resampled and the mean is
+    sum(values) / sum(items) over the resampled clusters.
     """
     rng = np.random.default_rng(seed)
 
@@ -49,14 +55,27 @@ def bootstrap_diff_of_props(x1, x2, clusters1=None, clusters2=None, n_boot: int 
     return float(s1.sum() / n1.sum() - s2.sum() / n2.sum()), *map(float, np.quantile(boots, [alpha / 2, 1 - alpha / 2]))
 
 
-def cluster_bootstrap_diff(a, b, clusters, n_boot: int = 10_000, seed: int = 0, alpha: float = 0.05) -> tuple[float, float, float]:
-    """Paired difference mean(a - b) with a CI that resamples whole clusters (prompts), as generations share prompts."""
+def _cluster_boots(a, b, clusters, n_boot: int, seed: int) -> tuple[float, np.ndarray]:
+    """Observed paired mean(a - b) and its bootstrap replicates, resampling whole clusters (prompts)."""
     a, b, clusters = np.asarray(a, float), np.asarray(b, float), np.asarray(clusters)
     ids = np.unique(clusters)
     per = np.array([(a[clusters == c] - b[clusters == c]).mean() for c in ids])  # one paired mean per cluster
     rng = np.random.default_rng(seed)
-    boots = rng.choice(per, (n_boot, len(per))).mean(1)
-    return float(per.mean()), *map(float, np.quantile(boots, [alpha / 2, 1 - alpha / 2]))
+    return float(per.mean()), rng.choice(per, (n_boot, len(per))).mean(1)
+
+
+def cluster_bootstrap_diff(a, b, clusters, n_boot: int = 10_000, seed: int = 0, alpha: float = 0.05) -> tuple[float, float, float]:
+    """Paired difference mean(a - b) with a CI that resamples whole clusters (prompts), as generations share prompts."""
+    obs, boots = _cluster_boots(a, b, clusters, n_boot, seed)
+    return obs, *map(float, np.quantile(boots, [alpha / 2, 1 - alpha / 2]))
+
+
+def bootstrap_p(a, b, clusters, n_boot: int = 10_000, seed: int = 0) -> float:
+    """Two-sided p-value for mean(a - b) = 0 from the same cluster resamples as `cluster_bootstrap_diff`: twice the
+    smaller share of replicates on either side of 0, i.e. the smallest alpha whose percentile CI excludes 0
+    (Efron & Tibshirani 1993, An Introduction to the Bootstrap, ch. 16)."""
+    _, boots = _cluster_boots(a, b, clusters, n_boot, seed)
+    return float(min(1.0, 2 * min((boots <= 0).mean(), (boots >= 0).mean())))
 
 
 def cluster_bootstrap_mean(x, clusters, n_boot: int = 10_000, seed: int = 0, alpha: float = 0.05) -> tuple[float, float, float]:
@@ -68,6 +87,11 @@ def empirical_p(observed: float, null) -> float:
     """(1 + #null >= observed) / (1 + n): exact-size p-value against a sample from the null (Phipson & Smyth 2010)."""
     null = np.asarray(null, float)
     return float((1 + (null >= observed).sum()) / (1 + len(null)))
+
+
+def mannwhitney_greater(x, y) -> float:
+    """One-sided Mann-Whitney U p-value for H: x tends to be larger than y (rank test, no normality assumption)."""
+    return float(mannwhitneyu(x, y, alternative="greater").pvalue)
 
 
 def holm(pvals) -> list[float]:
@@ -89,6 +113,16 @@ def cohen_kappa(r1, r2) -> float:
     return float(cohens_kappa(table).kappa)
 
 
+def kappa_ci(r1, r2, n_boot: int = 10_000, seed: int = 0, alpha: float = 0.05) -> tuple[float, float]:
+    """Percentile bootstrap CI of Cohen's kappa, resampling the rated items (resamples with one category are skipped)."""
+    r1, r2 = np.asarray(r1), np.asarray(r2)
+    rng = np.random.default_rng(seed)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)  # statsmodels' kappa variance is nan on degenerate resamples
+        ks = [cohen_kappa(list(r1[i]), list(r2[i])) for i in rng.integers(0, len(r1), (n_boot, len(r1)))]
+    return tuple(float(q) for q in np.nanquantile(ks, [alpha / 2, 1 - alpha / 2]))
+
+
 def harmonic_mean(concept: float, fluency: float) -> float:
     """Harmonic mean of two 0-2 judge scores; 0 if either is 0. AxBench (https://arxiv.org/abs/2501.17148) averages
     concept, instruction and fluency scores this way; our prompts are continuations, so the instruction score is dropped."""
@@ -99,3 +133,11 @@ def distinct_n(tokens, n: int = 2) -> float:
     """Fraction of distinct n-grams in a token sequence (low = repetitive degeneration; Li et al. 2016)."""
     grams = [tuple(tokens[i:i + n]) for i in range(len(tokens) - n + 1)]
     return len(set(grams)) / len(grams) if grams else 0.0
+
+
+def count_word(text: str, word: str) -> int:
+    """Case-insensitive occurrences of `word` (e.g. a pole's top promoted token) in `text`: whole words for
+    alphanumeric tokens, plain substrings otherwise (e.g. '['). A judge-free concept score for token-level concepts."""
+    w = word.strip()
+    pattern = rf"\b{re.escape(w)}\b" if w.isalnum() else re.escape(w)
+    return len(re.findall(pattern, text, flags=re.IGNORECASE))

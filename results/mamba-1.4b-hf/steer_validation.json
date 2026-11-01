@@ -3,12 +3,74 @@
   "kappa": 0.7948717948717948,
   "exact_agreement": 0.875,
   "manual_mean": 0.975,
-  "llm_mean": 0.85
+  "llm_mean": 0.85,
+  "kappa_ci95": [
+   0.6242171189979123,
+   0.9532710280373832
+  ],
+  "by_level": {
+   "0": {
+    "n": 9,
+    "manual_mean": 0.1111111111111111,
+    "llm_mean": 0.0
+   },
+   "2": {
+    "n": 10,
+    "manual_mean": 0.8,
+    "llm_mean": 0.7
+   },
+   "5": {
+    "n": 10,
+    "manual_mean": 0.9,
+    "llm_mean": 0.6
+   },
+   "10": {
+    "n": 6,
+    "manual_mean": 1.8333333333333333,
+    "llm_mean": 1.8333333333333333
+   },
+   "20": {
+    "n": 5,
+    "manual_mean": 2.0,
+    "llm_mean": 2.0
+   }
+  }
  },
  "fluency": {
   "kappa": 0.34426229508196715,
   "exact_agreement": 0.7,
   "manual_mean": 0.65,
-  "llm_mean": 0.25
+  "llm_mean": 0.25,
+  "kappa_ci95": [
+   0.17355371900826444,
+   0.5333333333333333
+  ],
+  "by_level": {
+   "0": {
+    "n": 9,
+    "manual_mean": 1.8888888888888888,
+    "llm_mean": 0.6666666666666666
+   },
+   "2": {
+    "n": 10,
+    "manual_mean": 0.8,
+    "llm_mean": 0.4
+   },
+   "5": {
+    "n": 10,
+    "manual_mean": 0.1,
+    "llm_mean": 0.0
+   },
+   "10": {
+    "n": 6,
+    "manual_mean": 0.0,
+    "llm_mean": 0.0
+   },
+   "20": {
+    "n": 5,
+    "manual_mean": 0.0,
+    "llm_mean": 0.0
+   }
+  }
  }
 }

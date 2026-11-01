@@ -16,7 +16,7 @@ import numpy as np
 from ..autointerp import detect, explain
 from ..llm import LocalLLM
 from ..logging_utils import get_logger
-from ..metrics import bootstrap_diff_of_props, cluster_bootstrap_mean, fisher_greater, wilson
+from ..metrics import bootstrap_diff_of_props, cluster_bootstrap_mean, fisher_greater, mannwhitney_greater, wilson
 from .common import load_json, save_json
 
 log = get_logger(__name__)
@@ -65,5 +65,29 @@ def phase_h1(settings) -> None:
     p = fisher_greater(sum(cn), len(cn), sum(cd), len(cd))
     out["difference"] = {"clean_rate_diff": diff, "ci95": [lo, hi], "fisher_one_sided_p": p,
                          "h1_supported": bool(diff > 0 and lo > 0 and p < 0.05)}
+    out["posthoc"] = _h1_posthoc(n, d, unit_of, settings.seed)
     save_json(out, settings.results_path() / "h1.json")
     log.info("H1: %s", out)
+
+
+def _h1_posthoc(n: list[dict], d: list[dict], unit_of, seed: int) -> dict:
+    """POST HOC (2026-11-01 independent audit, pre-registration amendment 9): the pre-registered clean threshold
+    dichotomises a noisy 20-snippet score, so also compare mean balanced accuracy (unit-cluster bootstrap CI; one-sided
+    Mann-Whitney on per-unit means), the clean rate at other thresholds, and mean BA per third of the layers."""
+    ba = lambda rows: np.array([r["balanced_accuracy"] for r in rows])
+
+    def unit_means(rows):
+        by = {}
+        for u, b in zip(unit_of(rows), ba(rows)):
+            by.setdefault(u, []).append(b)
+        return [float(np.mean(v)) for v in by.values()]
+
+    diff, lo, hi = bootstrap_diff_of_props(ba(n), ba(d), unit_of(n), unit_of(d), seed=seed)  # mean BA, units resampled
+    third = lambda rows, a, b: [r["balanced_accuracy"] for r in rows if a <= r["unit"]["layer"] < b]
+    by_layer = {f"{a}-{b - 1}": [float(np.mean(third(rows, a, b))) if third(rows, a, b) else None for rows in (n, d)]
+                for a, b in ((0, 16), (16, 32), (32, 48))}
+    return {"mean_ba_diff": {"diff": diff, "ci95": [lo, hi],
+                             "mannwhitney_one_sided_p": mannwhitney_greater(unit_means(n), unit_means(d))},
+            "clean_rate_by_threshold": {str(t): [float((ba(n) >= t).mean()), float((ba(d) >= t).mean())]
+                                        for t in (0.6, 0.7, 0.8, 0.9)},
+            "mean_ba_by_layers": by_layer, "columns": ["neuron", "direction"]}
