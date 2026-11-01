@@ -25,12 +25,16 @@ H3 p-values are uncorrected per pole, as pre-registered; under Holm over 3 poles
 1. **Necessity is weak or absent.**
    - For two of three neurons, ablation hurts next-token prediction at their firings more than any of 20 random neurons. The absolute effect is tiny (0.002–0.012 nats).
    - The "as" neuron, whose clamping does inject "as" (experiment 3), shows no necessity at all.
-   - Together: these neurons are *sufficient* to push their token but are not individually *necessary*. This fits redundancy between neurons, or downstream self-repair ([McGrath et al., 2023](https://arxiv.org/abs/2307.15771)). That is a hypothesis, not tested here.
-2. **The SSM factor carries the pole, not the gate.** In all 600 firings examined the gate was open (z > 0, median SiLU(z) 3.1–4.2). Whether the neuron fires is decided by the signed SSM output y. The double-negative regime (y < 0, z < 0 giving a > 0), which Goodfire flags as a tooling hazard for SwiGLU neurons, never occurred here.
-3. **These neurons need long context.**
+   - The 0.0018-nat "pass" of L28 N953 is smaller than the spread of random-neuron ablation effects across the three poles (−0.0055 to +0.0069 nats).
+   - Together: these neurons are *sufficient*, at doses far above their natural range, to push their token, but they are not individually *necessary*. Several explanations fit, none tested here:
+     - redundancy between neurons, or downstream self-repair ([McGrath et al., 2023](https://arxiv.org/abs/2307.15771));
+     - the dose mismatch: steering writes supra-natural values at every token, ablation removes natural ones;
+     - saturation of log p(next token) where the model is already confident.
+2. **At these firings the sign comes from the SSM factor.** In all 600 firings examined the gate was open (z > 0, median SiLU(z) 3.1–4.2), so the sign of a is the sign of y (the SSM output including the D skip term). The double-negative regime (y < 0, z < 0 giving a > 0), which Goodfire flags as a tooling hazard for SwiGLU neurons, never occurred here. Both facts are largely expected for the strongest firings: SiLU(z) ≥ −0.28, so a negative gate caps |a| at 0.28·|y|, in SwiGLU as in Mamba. We measured z and y only at firings, so whether the gate or y decides *where* the neuron fires was not tested. That needs the same split at non-firing positions.
+3. **These neurons need long inputs.**
    - With only the last k ≤ 4 tokens (one block's convolution kernel) the activation is 0–11% of its full value.
    - It recovers gradually: 13–37% at 16 tokens, 40–84% at 32 tokens.
-   - So these late-layer prediction neurons are not local n-gram detectors; their firing depends on dozens of tokens of context.
+   - So these late-layer prediction neurons are not local n-gram detectors. Their firing fits a dependence on dozens of tokens of context. But truncation also shortens the input, and an effect of short inputs as such at deep layers is not ruled out. Restoring the input length with an unrelated prefix would separate the two.
    - This does not show that the SSM state carries that context. Convolutions stacked across layers reach back 3ℓ + 4 tokens at layer ℓ (94 at layer 30) even without the SSM. Resetting the SSM state would separate the two paths.
    - Caveat: truncated inputs start right after a separator, which is itself unusual context. The post-hoc truncation survey adds early-layer neurons as a control for this.
 4. **Single-position patching is weak.** Writing the neuron's typical firing value at one random position raises its promoted tokens' log-probability by 0.12–1.0 nats. That is within the random-neuron range (p 0.33–0.86). The null neurons were patched with relatively stronger values, though, so this does not cleanly show that a single typical firing matters no more than an arbitrary neuron. The large steering effects in experiment 3 come from sustained, much stronger activation at every position.
@@ -45,9 +49,14 @@ Context-truncation curves for all 39 screened poles. Each pole uses its stored t
 | 30–39 | 19 | 0.18 | 0.74 |
 | 40–47 | 8 | 0.24 | 0.78 |
 
-- **The control mostly works.** Three of the four early-layer poles keep their activation with only 4 tokens of context: L0 N1037 ("periods before www domain names") and L0 N84 stay at 1.00–1.10, and L1 N1296 at 0.84. The fourth, L0 N2107 (a Github domain neuron), keeps only 0.20. So short inputs that start after a separator do not by themselves suppress activations, though the control has only 4 poles.
-- **From layer 20 on, neurons need more than the last 4 tokens.** The prediction neurons of layers 27–32 (`as`, `from`, `set`, `per`, `[`, digits) are among the most long-range: 0–0.01 at k = 4, 0.18–0.41 at k = 16 and 0.50–0.70 at k = 32. L22 N1915 (separator lines; 0.32 at k = 32) and L31 N2412 (periods before legal citations; 0.41) recover even less. Their firing needs dozens of tokens of context.
+- **The control mostly works, at layers 0–1.** Three of the four early-layer poles keep their activation with only 4 tokens of context: L0 N1037 ("periods before www domain names") and L0 N84 stay at 1.00–1.10, and L1 N1296 at 0.84. The fourth, L0 N2107 (a Github domain neuron), keeps only 0.20. So at layers 0–1, short inputs that start after a separator do not by themselves suppress activations. Three limits apply:
+  - the control has only 4 poles;
+  - all 4 are domain-stream neurons, while most deep poles are formula (prediction) neurons;
+  - no screened pole lies in layers 2–21.
+
+  It therefore cannot rule out that short inputs as such lower activations at deep layers.
+- **From layer 20 on, neurons need more than the last 4 tokens.** The prediction neurons of layers 27–32 (`as`, `from`, `set`, `per`, `[`, digits) are among the most long-range: 0–0.01 at k = 4, 0.18–0.41 at k = 16 and 0.50–0.70 at k = 32. L22 N1915 (separator lines; 0.32 at k = 32) and L31 N2412 (periods before legal citations; 0.41) recover even less. Their firing needs dozens of tokens of input, which fits a dependence on long context but is not separated from an effect of the short input itself.
 - **Later layers (34–45) recover faster** (k = 16: median 0.77, range 0.35–1.10 over 21 poles).
-- **Caveat.** This is correlational with respect to the mechanism. We did not ablate the SSM state, and stacked convolutions could also carry tens of tokens of context at these depths.
+- **Caveat.** This is correlational with respect to the mechanism. We did not ablate the SSM state, and stacked convolutions could also carry tens of tokens of context at these depths. We did not compare transformer neurons, so this is not shown to be Mamba-specific.
 
 ![Truncation survey](../results/mamba-1.4b-hf/figures/truncation_survey.png)
