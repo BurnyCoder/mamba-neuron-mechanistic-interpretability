@@ -9,7 +9,7 @@ from .interp import phase_h1, phase_label
 from .mechanism import phase_mechanism, phase_truncation_survey
 from .publish import phase_export, phase_hf, phase_plots
 from .steering import (phase_confirm, phase_confirm_h2b, phase_confirm_h2b_judge, phase_confirm_judge, phase_h2_stats,
-                       phase_screen, phase_screen_judge, phase_screen_low, phase_screen_low_judge)
+                       phase_h2b_stats, phase_screen, phase_screen_judge, phase_screen_low, phase_screen_low_judge)
 
 PHASES = {
     "benchmark": phase_benchmark,
@@ -29,6 +29,7 @@ PHASES = {
     "h2_stats": phase_h2_stats,  # recompute H2 stats without re-judging
     "confirm_h2b": phase_confirm_h2b,  # only after H2b is pre-registered
     "confirm_h2b_judge": phase_confirm_h2b_judge,  # Ollama
+    "h2b_stats": phase_h2b_stats,  # recompute H2b stats without re-judging
     "mechanism": phase_mechanism,
     "truncation_survey": phase_truncation_survey,  # post hoc
     "export": phase_export,
