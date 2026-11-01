@@ -4120,6 +4120,7 @@
   "label": "The neuron fires when the phrase 'for the first time' or 'in the first place' appears.",
   "concept": "mentions of the word 'first'",
   "level": 0.25,
+  "n_prompts": 50,
   "conditions": {
    "unsteered": {
     "concept": 0.1,
@@ -4432,6 +4433,20 @@
    ]
   },
   "p_vs_random_null": 0.012345679012345678,
+  "clamp_minus_prompting": {
+   "diff": 0.24666666666666665,
+   "ci95": [
+    0.11333333333333334,
+    0.38
+   ]
+  },
+  "clamp_minus_diffmean": {
+   "diff": 0.2033333333333333,
+   "ci95": [
+    0.05666666666666665,
+    0.34674999999999884
+   ]
+  },
   "p_holm": 0.037037037037037035,
   "verdict_absolute_fluency": false,
   "verdict_noninferior_fluency": true,

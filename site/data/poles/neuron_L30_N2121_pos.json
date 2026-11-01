@@ -4150,6 +4150,7 @@
   "label": "The neuron fires on tokens immediately preceding the word 'as'.",
   "concept": "the word 'as'",
   "level": 2,
+  "n_prompts": 50,
   "conditions": {
    "unsteered": {
     "concept": 0.24,
@@ -4462,6 +4463,20 @@
    ]
   },
   "p_vs_random_null": 0.012345679012345678,
+  "clamp_minus_prompting": {
+   "diff": 0.23333333333333336,
+   "ci95": [
+    0.09,
+    0.38666666666666666
+   ]
+  },
+  "clamp_minus_diffmean": {
+   "diff": 0.3833333333333333,
+   "ci95": [
+    0.25666666666666665,
+    0.5166666666666666
+   ]
+  },
   "p_holm": 0.037037037037037035,
   "verdict_absolute_fluency": false,
   "verdict_noninferior_fluency": true,
@@ -4471,6 +4486,7 @@
   "label": "The neuron fires on tokens immediately preceding the word 'as'.",
   "concept": "the word 'as'",
   "level": 0.5,
+  "n_prompts": 50,
   "conditions": {
    "unsteered": {
     "concept": 0.19,
@@ -4783,6 +4799,20 @@
    ]
   },
   "p_vs_random_null": 0.012345679012345678,
+  "clamp_minus_prompting": {
+   "diff": 0.1433333333333333,
+   "ci95": [
+    0.023250000000000062,
+    0.27
+   ]
+  },
+  "clamp_minus_diffmean": {
+   "diff": 0.05333333333333332,
+   "ci95": [
+    -0.06333333333333334,
+    0.16666666666666663
+   ]
+  },
   "p_holm": 0.037037037037037035,
   "verdict_absolute_fluency": false,
   "verdict_noninferior_fluency": true,
