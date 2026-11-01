@@ -13,7 +13,7 @@
 ## Determinism
 - **Data and seeds.** The document split, window sampling, random directions, audit sample, prompt sets and random-neuron nulls are all seeded from `SEED=0`. Generation seeds are `SEED` and `SEED+1`.
 - **Activations.** Statistics are deterministic up to GPU floating-point non-associativity (bf16 weights, fp32 accumulation in the scan).
-- **LLM calls.** Temperature 0 with a fixed seed per attempt. Llama.cpp results can still differ slightly across hardware and context sizes. For example, the same fluency ratings differed in 1 of 24 cases between `num_ctx` 8192 and 2048. Every prompt and reply is logged in full in `logs/*_llm_calls.jsonl`.
+- **LLM calls.** Temperature 0 with a fixed seed per attempt. Llama.cpp results can still differ slightly across hardware and context sizes; an unarchived development spot check saw a few fluency ratings change between `num_ctx` 8192 and 2048. Every prompt and reply is logged in full in `logs/*_llm_calls.jsonl`.
 
 ## Re-running
 1. Copy `.env.example` to `.env`. Adjust `OUTPUT_DIR` and `HF_HOME` to a drive with about 15 GB free, and `HF_TOKEN_PATH` to your token.
@@ -25,10 +25,15 @@
    ```bash
    uv run python -m mamba_neurons.pipeline --phases benchmark,collect,vocab,select,domains,examples,label,h1,screen,screen_judge
    ```
-   Then append the generated `results/<model>/confirm_plan.json` to `reports/preregistration.md` as an amendment, and run:
+   Then append the generated `results/<model>/confirm_plan.json` to `reports/preregistration.md` as an amendment, and run the H2 confirmation, the mechanism analysis and the post-hoc low-dose sweep:
    ```bash
-   uv run python -m mamba_neurons.pipeline --phases confirm,confirm_judge,mechanism,export,plots
+   uv run python -m mamba_neurons.pipeline --phases confirm,confirm_judge,mechanism,screen_low,screen_low_judge
    ```
+   Append the generated `results/<model>/confirm_plan_h2b.json` and the H2b rule to the pre-registration as an amendment, and run H2b, the post-hoc truncation survey and the outputs:
+   ```bash
+   uv run python -m mamba_neurons.pipeline --phases confirm_h2b,confirm_h2b_judge,truncation_survey,export,plots
+   ```
+   `h2_stats` and `h2b_stats` recompute the confirmation statistics from the judged rows without any LLM call. The judge-validation κ values come from `scripts/judge_validation.py`.
 4. Optionally publish to the Hugging Face Hub (needs `hf auth login`):
    ```bash
    uv run python -m mamba_neurons.pipeline --phases hf
@@ -39,11 +44,17 @@ Approximate wall time on the test machine:
 | Phase | Time |
 |---|---|
 | Collection | 50 + 11 min |
-| Domains | 8 min |
+| Domains | 9 min |
 | Examples | 45 min |
 | Labels | 30 min |
-| Screen | 16 min generation + about 50 min judging |
-| Confirmation | about 3 h (mostly judging) |
+| Screen | 16 min generation + 50 min judging |
+| H2 confirmation | 28 min generation + 2 h judging |
+| Mechanism (H3) | 52 min |
+| Low-dose sweep | 10 min generation + 43 min judging |
+| H2b confirmation | 28 min generation + 1 h 36 min judging |
+| Truncation survey | 17 min |
+
+Times are read from the archived logs in `reports/logs/`.
 
 ## Smoke test
 Use tiny budgets and the 130M model, and keep the outputs separate:

@@ -4166,6 +4166,7 @@
   "label": "The neuron fires on tokens immediately preceding the word 'from'.",
   "concept": "the word 'from'",
   "level": 0.5,
+  "n_prompts": 50,
   "conditions": {
    "unsteered": {
     "concept": 0.16,
@@ -4478,6 +4479,20 @@
    ]
   },
   "p_vs_random_null": 0.012345679012345678,
+  "clamp_minus_prompting": {
+   "diff": 0.3233333333333333,
+   "ci95": [
+    0.17,
+    0.47674999999999884
+   ]
+  },
+  "clamp_minus_diffmean": {
+   "diff": 0.30333333333333334,
+   "ci95": [
+    0.13,
+    0.4833333333333333
+   ]
+  },
   "p_holm": 0.037037037037037035,
   "verdict_absolute_fluency": false,
   "verdict_noninferior_fluency": true,

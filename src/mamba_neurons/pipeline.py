@@ -1,7 +1,7 @@
 """Single entry point: runs the named pipeline phases in order.
 
 Local explanation: `python -m mamba_neurons.pipeline --phases collect,vocab` loads `.env` settings, sets up
-timestamped logging and calls each phase function from `phases.py`.
+timestamped logging and calls each phase function registered in `phases/__init__.py::PHASES`.
 Global context: this is the "one abstracted wrapper" of the project; each phase reads its inputs from and writes its
 outputs to `settings.run_dir()` / `settings.results_path()`, so phases can be re-run independently.
 """

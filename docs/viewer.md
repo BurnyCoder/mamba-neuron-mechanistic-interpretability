@@ -14,7 +14,7 @@ Then open http://localhost:8000.
 ## What it shows
 - **Summary cards.**
   - The pre-registered H1 result: clean-pole rate for random neurons vs random directions.
-  - The H2 result for each confirmed neuron: harmonic mean of concept and fluency when clamped vs unsteered, the Holm p-value against the random-neuron null, and the verdict.
+  - The H2 and H2b result for each confirmed neuron: harmonic mean of concept and fluency when clamped vs unsteered, the Holm p-value against the random-neuron null, and the verdict.
   - Split stability.
 - **Pole list.**
   - Filters: steering-screened, formula candidates, domain neurons, the random audit sample, or everything.
@@ -25,7 +25,7 @@ Then open http://localhost:8000.
   - **Activation statistics.** Discovery split: mean, std, skew, kurtosis, max, min, fraction positive.
   - **Writes up / writes down.** Top promoted and suppressed tokens of `W_U(g ⊙ w_i)`, sign-flipped for negative poles.
   - **Turn it up.** The clamp-sweep table (concept, fluency, harmonic mean, NLL) with buttons that show the 10 generations at each level.
-  - **Confirmation and Mechanism tables.** Only for the confirmed poles.
+  - **Confirmation tables (H2, H2b) and Mechanism table.** Only for the confirmed poles. The confirmation title shows the actual number of prompts (47 for L32 N2669).
   - **Strongest firings.** Token heatmaps; colour intensity is activation divided by the snippet's peak, and the peak token is outlined. Orange is the positive pole, blue the negative.
   - **Held-out detection test.** The 10 top firings (★) and 10 random snippets (·) the scorer saw. Random snippets are coloured relative to the pole's strongest discovery firing.
 

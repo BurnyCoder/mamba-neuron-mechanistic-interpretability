@@ -32,9 +32,9 @@
 | kurtosis | 0.942 |
 | frac_pos | 0.999 |
 
-**Scale grows with depth.** The per-layer median of each neuron's maximum activation rises from 0.5 (layer 0) to 24.4 (layer 42). The median std rises from 0.02 to 0.28. In the vocab projection, the per-layer median kurtosis of `W_U(g ⊙ w_i)` stays near Gaussian at every layer (3.23–3.55). It is highest in layers 31–40 (peak 3.55 at layer 35), the same layers where the prediction-neuron candidates sit. Prediction-like neurons are a heavy tail, not the norm.
+**Scale grows with depth.** The per-layer median of each neuron's maximum activation rises from 0.5 (layer 0) to a plateau of 24–26 in layers 40–45 (25.6 at layers 41 and 44, 22.1 at layer 47). The median std goes from 0.01–0.02 in the first layers to 0.35 at layer 47. These per-layer medians come from `stats_discovery.pt` (in `OUTPUT_DIR`), not from a committed results file. In the vocab projection, the per-layer median kurtosis of `W_U(g ⊙ w_i)` stays near Gaussian at every layer (3.23–3.55). It is highest in layers 31–40 (peak 3.55 at layer 35), the same layers where the prediction-neuron candidates sit. Prediction-like neurons are a heavy tail, not the norm.
 
-**Candidates (pre-registered formula).** All 60 are late-layer (27–47, plus one at layer 9 and two at 22) and positive-pole (59 of 60). Nearly all are next-token-prediction neurons, which promote one word family: `all`, `way`, `self`, `nor`, `time`, `per`, `from`, `basis`, `with`, `others`, and numbers. This follows from the formula: high vocab kurtosis plus input-output coherence selects exactly Gurnee-style prediction neurons ([Gurnee et al. 2024](https://arxiv.org/abs/2401.12181)).
+**Candidates (pre-registered formula).** 57 of 60 are late-layer (27–47); the other three are one at layer 9 and two at layer 22. 59 of 60 are positive poles. The input-output coherence score used all 40 stored top firings, not the 20 the pre-registration text names (erratum in amendment 8). Nearly all are next-token-prediction neurons, which promote one word family: `all`, `way`, `self`, `nor`, `time`, `per`, `from`, `basis`, `with`, `others`, and numbers. This follows from the formula: high vocab kurtosis plus input-output coherence selects exactly Gurnee-style prediction neurons ([Gurnee et al. 2024](https://arxiv.org/abs/2401.12181)).
 
 **Domain stream (amendment 2).** For each domain, the 3 largest |d′| of window-mean activation, in-domain vs rest:
 
@@ -52,7 +52,7 @@
 The DM Mathematics signal is by far the strongest (|d′| up to 9.5): those synthetic arithmetic documents are stylistically very distinct.
 
 ## Learnings and issues
-1. **Fast kernels.** `mamba_ssm` kernels are not available on Windows, so the HF reference sequential scan runs at about 1,300 tok/s at batch 16.
-2. **Parallel scan rejected.** `use_mambapy=True` (the mamba.py Blelloch scan) was *slower* (2.2k vs 3.6k tok/s on mamba-130m in fp32). Its logits also differed by up to 153, plausibly because pscan expects power-of-two lengths and ours is 129. In bf16 it crashed with a dtype mismatch inside transformers. Kept the reference path.
-3. **Memory spill.** At batch 16 the first run spilled into Windows shared GPU memory (7.7 / 8.1 GB used, 185 tok/s). Batch 12 (about 5 GB) fixed it. The held-out budget was cut from 1.3M to 650k tokens to keep the collection under an hour.
+1. **Fast kernels.** `mamba_ssm` kernels are not available on Windows, so the HF reference sequential scan is used. It reached 1,342 tok/s in a one-batch benchmark at batch 16 (log `20261028-075928_benchmark`), but averaged 786 tok/s over the full discovery pass at batch 12.
+2. **Parallel scan rejected.** `use_mambapy=True` (the mamba.py Blelloch scan) was *slower* (2.2k vs 3.6k tok/s on mamba-130m in fp32, in a development run whose output is in the agent transcript, not in `reports/logs/`). Its logits also differed by up to 153, plausibly because pscan expects power-of-two lengths and ours is 129. In bf16 it crashed with a dtype mismatch inside transformers. Kept the reference path.
+3. **Memory spill.** At batch 16 the first run spilled into Windows shared GPU memory (7.7 / 8.1 GB used, 185 tok/s). Batch 12 fixed it. The held-out budget was cut from 1.3M to 650k tokens to keep the collection under an hour.
 4. **Stale caches.** Cached windows are now keyed by a settings fingerprint (`windows_tag`), so a budget change can never silently reuse old windows.

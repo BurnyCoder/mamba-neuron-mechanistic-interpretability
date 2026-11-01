@@ -8,33 +8,34 @@ Neuron-level mechanistic interpretability of the **Mamba-1.4B** state-space lang
 4. Audit how many neurons are clean.
 5. Turn single neurons up during generation, compared against random-neuron, DiffMean and prompting baselines.
 
-All confirmatory tests are pre-registered ([reports/preregistration.md](reports/preregistration.md), 7 dated amendments); post-hoc analyses are labelled as such. Everything runs locally on an 8 GB laptop GPU, with a local LLM (Qwen3.5-9B via Ollama) as labeller and judge.
+All confirmatory tests are pre-registered ([reports/preregistration.md](reports/preregistration.md), 8 dated amendments; the 8th is an audit erratum); post-hoc analyses are labelled as such. Everything runs locally on an 8 GB laptop GPU, with a local LLM (Qwen3.5-9B via Ollama) as labeller and judge.
 
 **Interactive viewer:** https://burnycoder.github.io/mamba-neuron-mechanistic-interpretability/ · **Dataset:** [BurnyCoder/mamba-1.4b-neuron-atlas](https://huggingface.co/datasets/BurnyCoder/mamba-1.4b-neuron-atlas) ([collection](https://huggingface.co/collections/BurnyCoder/mamba-neuron-interpretability-6ae23bf88df873e27b8320a2)) · **Paper:** [reports/paper.pdf](reports/paper.pdf)
 
 ![Neuron viewer: L37 N71 fires on "first" in "for the first time" / "in the first place"; turned up gently it makes the model write "first" in fluent text](docs/images/viewer.png)
 
-![Dose-response of the three H2b neurons: gentle doses (0.25–1× max, left of the dotted line) inject the concept while text stays fluent; the pre-registered doses (≥2×) destroy fluency](results/mamba-1.4b-hf/figures/dose_response_h2b.png)
+![Dose-response of the three H2b neurons on 10 prompts: the best gentle dose (0.5× for "from" and "as", 0.25× for "first", left of the dotted line) injects the concept with judged fluency near unsteered; at the pre-registered doses (≥2×) judged fluency drops to 0–0.3](results/mamba-1.4b-hf/figures/dose_response_h2b.png)
 
 ## Highlights
-- **Every neuron is a sparse detector.** The median Mamba neuron has activation kurtosis **354**; random directions in the same space have 6.9. 86% of neurons are positively skewed, i.e. they fire mainly on their positive pole. The statistics replicate on disjoint documents (Spearman ρ 0.94–0.999). [Report 1](reports/experiment_01_atlas.md)
-- **Negative: a local-LLM audit cannot tell neurons from random directions.** 15.1% of random neuron poles are "clean" (held-out detection accuracy ≥ 0.8), against 13.5% of random directions. Fisher p = 0.39, so pre-registered H1 is **not supported**. The instrument is weak (detection-judge κ = 0.55), so this is not evidence against clean neurons. [Report 2](reports/experiment_02_autointerp_h1.md)
+- **Almost all neurons are sparse detectors.** The median Mamba neuron has activation kurtosis **354**, and 90% are above 46. Random directions in the same space have a median of 6.9 (a Gaussian has 3). 86% of neurons are positively skewed: their rare large activations are mostly positive. The statistics replicate on disjoint documents (Spearman ρ 0.94–0.999). [Report 1](reports/experiment_01_atlas.md)
+- **Negative: a local-LLM audit cannot tell neurons from random directions.** 15.1% of random neuron poles are "clean" (held-out detection accuracy ≥ 0.8), against 13.5% of random directions. Fisher p = 0.39, so pre-registered H1 is **not supported**. The instrument is weak (detection judge vs blind reference ratings: κ = 0.55), so this null says little about whether neurons are clean. [Report 2](reports/experiment_02_autointerp_h1.md)
 - **Positive: clearly interpretable neurons exist.** The pre-registered selection formula finds neurons a 9B model can describe and predict on held-out text (30 of 60 clean, mean accuracy 0.77):
-  - L37 N1812 fires on "after" in *after all* and writes `all`.
-  - L34 N1725 fires on *neither … nor*.
+  - L37 N1812 fires on the token before *all* (*after all*, *at all*, *of all*) and writes `all`.
+  - L34 N1725 fires before *nor* in *neither … nor*.
   - L38 N918 fires on *make(s)* before *sense*.
   - L43 N2475 fires before *each other*.
   - L36 N109 fires inside email addresses.
 - **Positive: turning one neuron up injects its concept, specifically.**
-  - In the pre-registered H2 confirmation on 50 fresh prompts × 2 seeds, clamping raised the concept score above **all 80 random same-layer neurons** clamped at the same relative dose, for all 3 neurons (p = 1/81).
-  - It also beat prompting on the primary metric.
+  - In the pre-registered H2 confirmation on 50 fresh prompts (47 for "set") × 2 seeds, clamping raised the concept score above **all 80 random same-layer neurons** clamped at the same relative dose, for all 3 neurons (p = 1/81).
+  - On the primary metric it also beat prompting for "as" and "set" (post-hoc paired CI excludes 0). For "[" the difference is +0.07 [−0.01, +0.16].
   - Best neuron: **L30 N2121, the "as" neuron**: "…let your children know you are **as** proud of them **as** they are…" [Report 3](reports/experiment_03_steering_h2.md)
 - **Negative: at the pre-registered doses (≥ 2× the neuron's maximum), text degenerates.** "all all all …", "@@@@". **H2 is not supported**, because the absolute fluency criterion fails. DiffMean at the same norm degenerates even more (distinct-2 0.03–0.17).
-- **Post hoc → re-tested: gentle doses (0.25–0.5× max) steer fluently.** Concept 0.08 → 0.52 at 0.25× while distinct-2 stays at 0.83 (unsteered 0.91). **Pre-registered H2b on 50 fresh prompts × 2 seeds: supported for all 3 neurons.** The "from", "as" and "first" neurons each beat all 80 random neurons (Holm p = 0.037), beat prompting and DiffMean, and keep fluency non-inferior to unsteered text. Example: "…have been recognized as the **first** step in understanding the biomechanical behavior of the bone…"
-- **Mamba-specific mechanism: mid and late neurons run on SSM memory, not the convolution.**
-  - With only the 4-token convolution window, neurons from layer 20 on keep just 10–24% (median) of their activation. Early-layer detectors keep 92%.
-  - The gate `SiLU(z)` is always open at firings, so the SSM factor decides the pole.
-  - Necessity is weak: zero-ablation costs only 0.002–0.012 nats where they fire. [Report 4](reports/experiment_04_mechanism_h3.md)
+- **Post hoc → re-tested: gentle doses (0.25–0.5× max) steer fluently.** Concept 0.08 → 0.52 at 0.25× while distinct-2 stays at 0.83 (unsteered 0.91). **Pre-registered H2b on 50 fresh prompts × 2 seeds: supported for all 3 neurons.** The "from", "as" and "first" neurons each beat all 80 random neurons (Holm p = 0.037) and keep fluency non-inferior to unsteered text. Their harmonic mean is also higher than prompting and DiffMean; in a post-hoc paired test every one of these comparisons excludes 0 except "as" vs DiffMean (+0.05 [−0.06, +0.17]). Example: "…have been recognized as the **first** step in understanding the biomechanical behavior of the bone…"
+- **Mechanism (exploratory): deeper neurons need longer context.**
+  - With only the last 4 tokens of context, the 35 screened poles from layer 20 on keep a median of 10–24% of their activation, depending on the layer bin. The 4 poles in layers 0–1 keep a median of 92%, although one of them (L0 N2107) keeps only 20%.
+  - This shows that these neurons need more than 4 tokens. It does not show whether that context arrives through the SSM state or through convolutions stacked across layers: a layer-ℓ neuron can see 3ℓ+4 tokens through convolutions alone.
+  - For the 3 H2 neurons, the gate `SiLU(z)` was open at all 600 examined firings, so the SSM factor decides the pole.
+  - Necessity is weak: zero-ablation changes log p(next token) by only −0.003 to 0.012 nats where they fire. [Report 4](reports/experiment_04_mechanism_h3.md)
 
 ## What a "neuron" is in Mamba
 ```
@@ -48,7 +49,7 @@ Neuron (ℓ, i) is `a_i`, the input to `mixer.out_proj` (HF [`modeling_mamba.py`
 - An elementwise gate acts on it, which makes the basis privileged.
 - Its two factors are signed, so each neuron has a positive and a negative pole.
 
-Unit tests prove the hook site. `out_proj(a)` equals the mixer output, and adding δ to `a_i` is identical to adding δ·`w_i` to the residual stream. Details are in [docs/methodology.md](docs/methodology.md).
+Unit tests verify the hook site. `out_proj(a)` equals the mixer output, and adding δ to `a_i` is identical to adding δ·`w_i` to the residual stream. Details are in [docs/methodology.md](docs/methodology.md).
 
 ## Method in one table
 | Step | What | Data | Grounded in |
@@ -64,7 +65,7 @@ Unit tests prove the hook site. `out_proj(a)` equals the mixer output, and addin
 | H3 / mechanism | Zero-ablation against 20 random neurons, gate vs SSM factor, context truncation, activation patching | held-out | [Meng et al. 2022](https://arxiv.org/abs/2202.05262) |
 
 ## Results
-**Steering confirmations.** HM = harmonic mean of the LLM judge's concept and fluency scores (0–2), averaged over 100 generations, with 95% prompt-cluster-bootstrap CIs. The null is 80 random same-layer neurons at the same relative clamp.
+**Steering confirmations.** HM = harmonic mean of the LLM judge's concept and fluency scores (0–2), averaged over 100 generations (94 for "set"), with 95% prompt-cluster-bootstrap CIs. AxBench also scores instruction-following; we drop that score because our prompts are text to continue, not instructions. The null is 80 random same-layer neurons at the same relative clamp.
 
 | Neuron · concept · dose | Unsteered | **Neuron clamp** | Neuron add | DiffMean (same norm) | Prompting | Random-neuron null (mean / max) | Holm p vs null | Verdict |
 |---|---|---|---|---|---|---|---|---|
@@ -76,16 +77,16 @@ Unit tests prove the hook site. `out_proj(a)` equals the mixer output, and addin
 | **L37 N71 · "first" · 0.25× (H2b)** | 0.00 | **0.35** [0.23, 0.49] | 0.36 | 0.15 | 0.11 | 0.00 / 0.00 | **0.037** | **supported** (0.42 vs 0.42; 0.87 vs 0.93) |
 
 **In plain language:**
-- **Better than every control.** Clamping one of these neurons makes the model use its word or concept far more than unsteered text, more than prompting with the concept, and more than any of 80 random neurons pushed equally hard.
-- **Worse at preserving text quality.** At the pre-registered doses the text gets repetitive, so judged fluency falls below unsteered text.
-- **DiffMean is the worst baseline here.** At the same budget it simply repeats the word.
+- **More concept than every control.** Clamping one of these neurons makes the model use its word or concept far more than unsteered text, more than prompting with the concept, and more than any of 80 random neurons pushed equally hard. On the harmonic mean, 10 of 12 post-hoc neuron-vs-baseline comparisons have a paired CI above 0. The exceptions are "[" vs prompting (H2) and "as" vs DiffMean (H2b).
+- **Worse at preserving text quality at strong doses.** At the pre-registered doses the text gets repetitive, so judged fluency falls below unsteered text. At the gentle H2b doses it stays non-inferior.
+- **DiffMean at the same norm.** At the H2 doses it simply repeats the word (harmonic mean 0). At the gentle H2b doses it does better than prompting, but worse than the neuron except for "as".
 
 | Other tests | Result |
 |---|---|
 | H1: clean poles, random neurons vs random directions | 15.1% vs 13.5%, Δ +1.6 pts [−5.7, +8.3], p = 0.39 → not supported |
 | H3: zero-ablation drop at top firings (nats) vs 20 random neurons | "as" −0.003 (p 0.76) · "[" 0.0018 (p 0.048) · "set" 0.012 (p 0.048) |
-| Activation kept with the 4-token conv window only (median by layer) | layers 0–1: 0.92 · 20–29: 0.10 · 30–39: 0.18 · 40–47: 0.24 |
-| Judge validity vs blind ratings (κ) | detection 0.55 · steering concept 0.79 · steering fluency 0.34 |
+| Activation kept with only the last 4 tokens of context (median over the 39 screened poles, by layer; post hoc) | layers 0–1 (n = 4): 0.92 · 20–29 (n = 8): 0.10 · 30–39 (n = 19): 0.18 · 40–47 (n = 8): 0.24 |
+| Judge validity vs blind reference ratings made by Claude Code, not a human (κ) | detection 0.55 · steering concept 0.79 · steering fluency 0.34 |
 
 ![H2b conditions](results/mamba-1.4b-hf/figures/h2b_conditions.png)
 ![H2 conditions](results/mamba-1.4b-hf/figures/h2_conditions.png)
@@ -172,7 +173,7 @@ uv run python -m http.server 8000 --directory site
 - Two candidate streams: a pre-registered formula and domain-selective neurons.
 - Local-LLM auto-interpretation: delphi-style explanation plus held-out detection scoring, resumable, fully logged.
 - Steering evaluation: AxBench judge, a random-neuron null, DiffMean, additive and prompting baselines, cluster bootstrap and Holm correction.
-- Mechanism tools: ablation, gate-vs-SSM factor split (the double-negative regime), context truncation (conv window vs SSM memory), activation patching.
+- Mechanism tools: ablation, gate-vs-SSM factor split (the double-negative regime), context truncation (how many tokens of context a firing needs), activation patching.
 - Judge validation against blind ratings (Cohen's κ).
 - A static, deep-linkable neuron viewer (GitHub Pages) and a Hugging Face dataset export.
 
@@ -183,4 +184,4 @@ PyTorch 2.14 (CUDA 13.0), Hugging Face `transformers` 5.21 (`MambaForCausalLM`, 
 `src/mamba_neurons/` holds the library and `phases/`. `tests/` has the pytest suite. `scripts/` has the labeller comparison, judge validation and screenshots. `site/` is the viewer. `docs/` holds methodology, pipeline, viewer and reproducibility. `reports/` has the pre-registration, experiment reports and paper. `results/` holds the small JSON results and figures.
 
 ## License
-MIT for the code. Model and data keep their own licences: [mamba-1.4b-hf](https://huggingface.co/state-spaces/mamba-1.4b-hf) and [the Pile](https://pile.eleuther.ai/).
+MIT for the code. Model and data keep their own licences: [mamba-1.4b-hf](https://huggingface.co/state-spaces/mamba-1.4b-hf), [NeelNanda/pile-10k](https://huggingface.co/datasets/NeelNanda/pile-10k) (bigscience-bloom-rail-1.0) and [the Pile](https://pile.eleuther.ai/).
