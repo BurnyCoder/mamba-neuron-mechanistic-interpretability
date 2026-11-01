@@ -4,6 +4,8 @@ Local explanation: the two prompts are the AxBench judge templates
 (https://github.com/stanfordnlp/axbench/blob/main/axbench/evaluators/prompt_templates.py, Wu et al. 2025
 https://arxiv.org/abs/2501.17148) with one change: instead of the free-text "Rating: [[score]]" line, the local model
 returns JSON {"explanation", "rating"} through Ollama structured outputs (explanation first, as AxBench asks).
+AxBench also rates instruction relevance; it is omitted here because our neutral prompts are document openings to
+continue, not instructions.
 Global context: per-generation harmonic mean of the two ratings is the primary H2 metric.
 """
 

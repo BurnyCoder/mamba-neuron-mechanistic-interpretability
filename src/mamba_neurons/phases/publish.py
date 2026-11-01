@@ -73,11 +73,13 @@ A *neuron* (layer l, index i) is coordinate i of the gated SSM output `a = y * S
 | file | rows | content |
 |---|---|---|
 | `neuron_stats.parquet` | 196,608 | mean / std / skew / kurtosis / max / min / frac_pos on the discovery (2.32M tokens) and held-out (0.65M tokens) splits of [NeelNanda/pile-10k](https://huggingface.co/datasets/NeelNanda/pile-10k); vocab kurtosis and top-5 promoted / suppressed tokens of `W_U(g * w_i)` |
-| `poles.parquet` | labelled poles | local-LLM (qwen3.5:9b) label, held-out detection balanced accuracy, promoted tokens, highlighted top-firing snippets (JSON) |
-| `steering.parquet` | generations | clamp-sweep screen and pre-registered confirmation generations with AxBench-style judge scores |
+| `poles.parquet` | labelled poles | local-LLM (qwen3.5:9b) label, held-out detection balanced accuracy, promoted tokens, top-firing and random snippets with per-token activations (JSON) |
+| `steering.parquet` | generations | every judged steering generation, with AxBench-style concept / fluency scores (0-2), their harmonic mean, NLL and distinct-2; column `stage` = `screen` (pre-registered, 2-20x max), `screen_low_posthoc` (0.25-1x max), `confirm_h2`, `confirm_h2b` |
 
-Text snippets are short excerpts of the Pile (Gao et al. 2020) and keep the licences of their original sources;
-labels and judge scores are produced by a local LLM and are noisy (judge-vs-manual Cohen's kappa 0.55 on detection).
+Text snippets are short excerpts of the Pile (Gao et al. 2020) via NeelNanda/pile-10k (licence bigscience-bloom-rail-1.0)
+and keep the licences of their original sources. Labels and judge scores come from a local LLM and are noisy. Agreement
+with blind reference ratings, which were made by Claude Code and not by a human annotator: Cohen's kappa
+{kappa_detect:.2f} for detection, {kappa_concept:.2f} for steering concept and {kappa_fluency:.2f} for steering fluency.
 """
 
 
@@ -90,7 +92,11 @@ def phase_hf(settings) -> None:
     tok = AutoTokenizer.from_pretrained(settings.model_name)
     out = settings.output_dir / "hf_dataset"
     files = export_hf(settings, tok, out)
-    (out / "README.md").write_text(HF_CARD, encoding="utf-8")
+    res = settings.results_path()
+    jv, sv = load_json(res / "judge_validation.json"), load_json(res / "steer_validation.json")
+    card = HF_CARD.format(kappa_detect=jv["kappa_manual_vs_llm"], kappa_concept=sv["concept"]["kappa"],
+                          kappa_fluency=sv["fluency"]["kappa"])
+    (out / "README.md").write_text(card, encoding="utf-8")
     api = HfApi()
     api.create_repo(settings.hf_dataset_repo, repo_type="dataset", exist_ok=True)
     api.upload_folder(folder_path=str(out), repo_id=settings.hf_dataset_repo, repo_type="dataset",

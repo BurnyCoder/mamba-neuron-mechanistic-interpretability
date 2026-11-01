@@ -90,7 +90,8 @@ def cohen_kappa(r1, r2) -> float:
 
 
 def harmonic_mean(concept: float, fluency: float) -> float:
-    """AxBench aggregate of two 0-2 judge scores; 0 if either is 0 (https://arxiv.org/abs/2501.17148)."""
+    """Harmonic mean of two 0-2 judge scores; 0 if either is 0. AxBench (https://arxiv.org/abs/2501.17148) averages
+    concept, instruction and fluency scores this way; our prompts are continuations, so the instruction score is dropped."""
     return 0.0 if concept + fluency == 0 else 2 * concept * fluency / (concept + fluency)
 
 
