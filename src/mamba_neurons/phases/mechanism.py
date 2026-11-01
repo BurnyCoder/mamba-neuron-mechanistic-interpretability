@@ -51,6 +51,8 @@ def phase_mechanism(settings) -> None:
         clean_lp = logp_at(model, held, nf_rows, nf_pos)  # shared by the target and all null patches
         patch = patching_effect(model, held, s * float(np.median(vals)), nf_rows, nf_pos, L, i, promoted, clean_lp)
         patch_null = []
+        # Null donors are each neuron's median discovery top-40 value, a more extreme statistic than the target's median
+        # of its 200 strongest held-out firings in SCAN_WINDOWS windows: the comparison is not like-for-like (reported).
         for j in others:
             group = stats["discovery"]["neurons"]
             donor = s * float(np.median(np.abs((group["top_val"] if s > 0 else group["bot_val"])[L, :, int(j)].numpy())))
@@ -73,10 +75,12 @@ def phase_mechanism(settings) -> None:
 
 
 def phase_truncation_survey(settings) -> None:
-    """POST HOC: context-truncation curve for every screened pole (all depths), using its stored held-out top firings.
+    """POST HOC: context-truncation curve for every screened pole (all depths), using its stored held-out top-k firings
+    (TOP_K = 40, one per window, so at most 40 firings; N_TRUNC = 50 is only an upper cap).
 
-    Early-layer token/n-gram detectors should keep their activation with k <= 4 tokens (the conv window); neurons that
-    need the recurrent SSM state should not. This controls the H3 truncation finding for short-input artefacts.
+    Early-layer token/n-gram detectors should keep their activation with k <= 4 tokens; neurons that need longer context
+    should not. This controls the H3 truncation finding for short-input artefacts. It does not separate SSM memory
+    from convolutions stacked across layers (receptive field 3*l + 4 tokens at layer l).
     """
     from ..collect import decode_index
 

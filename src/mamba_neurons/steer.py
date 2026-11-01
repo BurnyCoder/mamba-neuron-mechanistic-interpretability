@@ -6,7 +6,8 @@ Local explanation: every condition is a function `setup(hooks)` that registers e
              https://transformer-circuits.pub/2024/scaling-monosemanticity/; Goodfire "turn a neuron up").
   * add    - delta added to the neuron = delta * w_i added to the residual (ActAdd, https://arxiv.org/abs/2308.10248).
   * diffmean - residual vector mean(h | firing) - mean(h | random) at block l, scaled to the same residual norm
-             (DiffMean, the strongest simple baseline in AxBench, https://arxiv.org/abs/2501.17148).
+             (DiffMean from AxBench, https://arxiv.org/abs/2501.17148, where it is a top concept detector and beats
+             SAEs; prompting steers best there).
   * random neurons - same relative clamp on other neurons of the same layer (null distribution).
   * prompting - unsteered model with a concept prefix.
 Global context: outputs (token ids + text) are judged later by `judge.py` in a separate (Ollama) phase so the GPU
