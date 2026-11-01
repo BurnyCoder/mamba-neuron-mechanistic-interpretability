@@ -18,7 +18,7 @@ import numpy as np
 from mamba_neurons.autointerp import plain
 from mamba_neurons.config import load_settings
 from mamba_neurons.jsonio import load_json, save_json
-from mamba_neurons.metrics import cohen_kappa
+from mamba_neurons.metrics import cohen_kappa, kappa_ci
 
 N_ITEMS, SEED = 40, 0
 
@@ -48,6 +48,7 @@ def score(res) -> None:
     ids = [i for i in hidden if hidden[i]["llm"] is not None]
     manual, llm, truth = ([int(mine[i]) for i in ids], [int(hidden[i]["llm"]) for i in ids], [hidden[i]["truth"] for i in ids])
     out = {"n": len(ids), "kappa_manual_vs_llm": cohen_kappa(manual, llm),
+           "kappa_ci95": list(kappa_ci(manual, llm)),  # post hoc (2026-11-01 audit): item-bootstrap CI
            "accuracy_manual_vs_truth": float(np.mean(np.array(manual) == np.array(truth))),
            "accuracy_llm_vs_truth": float(np.mean(np.array(llm) == np.array(truth))),
            "agreement_manual_llm": float(np.mean(np.array(manual) == np.array(llm)))}
@@ -69,14 +70,24 @@ def steer_sample(res) -> None:
 
 
 def steer_score(res) -> None:
-    """Cohen's kappa between blind manual and LLM 0-2 ratings, per metric, plus exact agreement."""
+    """Cohen's kappa between blind manual and LLM 0-2 ratings, per metric, plus exact agreement.
+
+    Post hoc (2026-11-01 audit): an item-bootstrap CI of kappa and both raters' means per clamp level, which shows
+    where the judge was validated (no item lies in the 0.25-1x regime of H2b).
+    """
     hidden = load_json(res / "steer_validation_hidden.json")
     mine = load_json(res / "steer_validation_ratings.json")  # {"<id>": {"concept": 0-2, "fluency": 0-2}}
+    def level_means(m: str, c) -> dict:
+        ids = [i for i in hidden if hidden[i]["level"] == c]
+        return {"n": len(ids), "manual_mean": float(np.mean([mine[i][m] for i in ids])),
+                "llm_mean": float(np.mean([hidden[i][m] for i in ids]))}
+
     out = {}
     for m in ("concept", "fluency"):
         a, b = [int(mine[i][m]) for i in hidden], [int(hidden[i][m]) for i in hidden]
         out[m] = {"kappa": cohen_kappa(a, b), "exact_agreement": float(np.mean(np.array(a) == np.array(b))),
-                  "manual_mean": float(np.mean(a)), "llm_mean": float(np.mean(b))}
+                  "manual_mean": float(np.mean(a)), "llm_mean": float(np.mean(b)), "kappa_ci95": list(kappa_ci(a, b)),
+                  "by_level": {str(c): level_means(m, c) for c in sorted({hidden[i]["level"] for i in hidden})}}
     save_json(out, res / "steer_validation.json")
     print(out)
 
