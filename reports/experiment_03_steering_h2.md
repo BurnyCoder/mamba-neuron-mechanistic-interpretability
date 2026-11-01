@@ -2,12 +2,12 @@
 
 **Status:** done.
 **Code:** `steer.py`, `judge.py`, `phases/steering.py`.
-**Results:** `results/mamba-1.4b-hf/{screen,screen_low,confirm_plan,h2,steer_validation}.json`.
+**Results:** `results/mamba-1.4b-hf/{screen,screen_low,confirm_plan,confirm_plan_h2b,h2,h2b,steer_validation}.json`.
 
 ## Protocol
 - **Neutral prompts.** The first 16 tokens of held-out documents.
 - **Interventions.** These act at every position (prompt included) during sampled generation: 40 new tokens, temperature 0.7, top-p 0.95, seed 0.
-- **Judge.** The judge (`qwen3.5:9b`) uses the AxBench concept and fluency templates, scoring each from 0 to 2. Each generation gets their harmonic mean (HM).
+- **Judge.** The judge (`qwen3.5:9b`) uses the AxBench concept and fluency templates, scoring each from 0 to 2. Each generation gets their harmonic mean (HM). AxBench's third score, instruction relevance, is dropped because the prompts are text to continue.
 - **Steering concept.** The concept is an output-side "steering concept" written once per pole from its label and promoted tokens (amendment 4).
 
 ## Screen (pre-registered, exploratory): 39 clean candidate poles × {2, 5, 10, 20}× pole max × 10 prompts
@@ -76,9 +76,9 @@ Prompt set B: 50 held-out openings on which the neuron is inactive (47 for L32 N
 
 **What the data do show:**
 - **Specific concept injection.** For all three neurons the clamped concept score is higher than for every one of the 80 random neurons clamped at the same relative dose (p = 1/81). For L30 N2121 and L32 N2669 the primary HM metric also beats the null after Holm correction (p = 0.037). Clamping a random neuron in the same layer does not produce the concept, so the effect is specific to the chosen neuron.
-- **Neuron steering beats prompting** on HM for all three poles: 0.38 vs 0.15, 0.09 vs 0.02, 0.27 vs 0.07. The prompting prefix ("the word 'as':") barely raises the concept at all.
+- **Neuron steering has a higher HM than prompting** for all three poles: 0.38 vs 0.15, 0.09 vs 0.02, 0.27 vs 0.07. Post hoc, the paired clamp − prompting difference is +0.23 [0.09, 0.39] for "as" and +0.20 [0.08, 0.33] for "set", but +0.07 [−0.01, 0.16] for "[" (not significant). The prompting prefix ("the word 'as':") raises the concept only modestly (0.24 → 0.48 for "as").
 - **DiffMean at the same residual-norm budget is far too strong.** It drives distinct-2 to 0.03–0.17 ("as as as …", "set set set …", "[X['['X…"), so concept is maximal but HM = 0. The neuron's write direction, at the same norm, keeps text far more intact (distinct-2 0.75–0.85). That suggests the neuron direction is much better aligned with "fluent use of the concept" than the DiffMean direction, at least at this budget. This is post hoc: the budget was not tuned for DiffMean.
-- **Add ≈ clamp**, as expected, because these neurons sit at about 0 outside their firings.
+- **Add ≈ clamp** in concept score, as expected, because these neurons sit at about 0 outside their firings. Their HM differs for "set" (0.18 vs 0.27) through the fluency judge.
 
 Examples (clamp, seed 0, prompt set B):
 - **L30 N2121:** "…let your children know you are **as** proud of them **as** they are. In addition, the holiday is also a great time…" (concept 2, fluency 1)
@@ -136,9 +136,17 @@ The low-dose regime injects most of the concept while keeping most of the fluenc
 - more than prompting with the concept (0.44–0.47);
 - more than any of 80 random neurons pushed equally hard.
 
-This comes without a measurable fluency loss: judged fluency is within 0.1, and distinct-2 is within 0.06.
+Fluency is non-inferior by the pre-registered margins: judged fluency is within 0.09 of unsteered, and distinct-2 within 0.07.
 
-At the same residual-norm budget, DiffMean gives as much concept for "from" but much less fluent text (distinct-2 0.67), and less concept for "as" and "first". Additive steering and clamping are equivalent.
+At the same residual-norm budget, DiffMean gives as much concept for "from" but much less fluent text (distinct-2 0.67), and less concept for "as" and "first". Post hoc paired HM differences:
+
+| Pole | Clamp − prompting | Clamp − DiffMean |
+|---|---|---|
+| L30 N815 "from" | +0.32 [0.17, 0.48] | +0.30 [0.13, 0.48] |
+| L30 N2121 "as" | +0.14 [0.02, 0.27] | +0.05 [−0.06, 0.17] (n.s.) |
+| L37 N71 "first" | +0.25 [0.11, 0.38] | +0.20 [0.06, 0.35] |
+
+Additive steering and clamping are equivalent within their CIs.
 
 Examples (clamp, seed 0, prompt set C):
 - **N815:** "…have been evaluated **from** the analysis of the stress values and the mechanical properties of the bone."
@@ -148,8 +156,8 @@ Examples (clamp, seed 0, prompt set C):
 **Caveats.** Doses and poles were chosen post hoc on prompt set A and then confirmed on disjoint prompts; the confirmation is the evidence, not the sweep. The concepts are single function words, i.e. lexical rather than topical steering. The fluency judge is noisy (κ = 0.34), which is why distinct-2 is part of the rule.
 
 ## Learnings
-1. **Judge the right concept.** We first judged steering against the *input-side* detection label. The judge then answered a mechanism question ("is there a token before 'all'?") and gave 0 even to "all all all". Steering must be judged against what the neuron *writes*. We caught this after 7 judge calls and recorded it as amendment 4.
-2. **Pre-registered doses were too strong.** Doses were chosen as in SAE-feature clamping (multiples of max), but Mamba neurons are extremely heavy-tailed (median kurtosis 354). For the H2 poles, the median of the 200 strongest held-out firings is 9–38× below the discovery maximum, so 2× max is already far outside the natural range.
+1. **Judge the right concept.** We first judged steering against the *input-side* detection label. The judge then answered a mechanism question ("is there a token before 'all'?") and gave 0 even to "all all all". Steering must be judged against what the neuron *writes*. We caught this in the first judge calls, 9 according to the archived log (amendment 4 says 7; erratum in amendment 8), and recorded it as amendment 4.
+2. **Pre-registered doses were too strong.** Doses were chosen as in SAE-feature clamping (multiples of max), but Mamba neurons are extremely heavy-tailed (median kurtosis 354). For the H2 poles, the median of the 200 strongest held-out firings is 9–39× below the discovery maximum, so 2× max is already far outside the natural range.
 3. **The original null could never pass Holm.** A 20-neuron random null caps the empirical p at 1/21, which Holm over 3 poles can never bring below 0.05. We found this by code review before any confirmation data existed and fixed it to an 80-neuron null (amendment 5).
 4. **Faster judging.** Asking for one-sentence explanations and using a 2k context cut judge latency from about 20 s to about 1.2 s per call. Parallel Ollama requests did not help on this GPU (1.55 vs 1.35 s/call).
 5. **Neutral prompts.** L32 N2669 had only 47 of 400 openings below its 90th-percentile activation (its q90 is −0.015), so its confirmation uses 47 prompts instead of 50.
