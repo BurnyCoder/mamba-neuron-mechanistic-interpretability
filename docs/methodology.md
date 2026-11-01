@@ -3,7 +3,7 @@
 This page holds the technical details. The README has the overview, and `reports/preregistration.md` has the hypotheses, tests and thresholds. All code references are to `src/mamba_neurons/`.
 
 ## 1. Model and the neuron site
-`state-spaces/mamba-1.4b-hf` is the HF conversion of the original Mamba-1 1.4B checkpoint ([Gu & Dao 2023](https://arxiv.org/abs/2312.00752)), trained on 300B Pile tokens ([state-spaces/mamba README](https://github.com/state-spaces/mamba#pretrained-models)). It has 48 blocks, with d_model = 2048, d_inner = 4096, state size N = 16 and conv kernel 4. The GPT-NeoX-20B tokenizer has 50,280 tokens, and the unembedding is tied to the embedding.
+`state-spaces/mamba-1.4b-hf` is the HF conversion of the original Mamba-1 1.4B checkpoint ([Gu & Dao 2023](https://arxiv.org/abs/2312.00752)), trained on 300B Pile tokens ([state-spaces/mamba README](https://github.com/state-spaces/mamba#pretrained-models)). It has 48 blocks, with d_model = 2048, d_inner = 4096, state size N = 16 and conv kernel 4. The GPT-NeoX-20B tokenizer has 50,277 tokens. The embedding has 50,280 rows (`vocab_size` in the config, padded), and the unembedding is tied to it.
 
 The mixer of block ℓ is computed in HF `MambaMixer.forward`, using the torch path because the `mamba_ssm` kernels do not build on Windows:
 
@@ -34,7 +34,7 @@ Unit tests (`tests/test_model.py`) check four things:
 - **Corpus.** `NeelNanda/pile-10k`: 10,000 Pile documents, in-distribution for the model.
 - **Split.** Documents are shuffled with seed 0, and 30% are held out *by document*.
 - **Windows.** Each document is tokenized and cut into non-overlapping 128-token windows, at most 4 per document. Shorter tails are dropped. Each window is prefixed with the `<|endoftext|>` separator (id 0), and statistics exclude that position.
-- **Size.** The discovery split has 18,111 windows (2.32M tokens) from 6,193 documents. The held-out split is capped at 650k tokens: 5,078 windows from 1,758 documents. The cap is for compute: the reference scan runs at about 960 tok/s on the test GPU.
+- **Size.** The discovery split has 18,111 windows (2.32M tokens) from 6,193 documents. The held-out split is capped at 650k tokens: 5,078 windows from 1,758 documents. The cap is for compute: the reference scan averaged 786 tok/s over the discovery pass on the test GPU.
 
 ## 3. Activation statistics (`collect.py`)
 - **Pass.** One streaming pass per split records every layer.
@@ -43,18 +43,18 @@ Unit tests (`tests/test_model.py`) check four things:
 
 ## 4. What a neuron writes (`vocab.py`)
 - **Direct logit effect.** `u_i = W_U (g ⊙ w_i)`, where `g` is the final RMSNorm gain. This ignores later blocks and the positive RMS scale. The negative pole writes `−u_i`.
-- **Vocab kurtosis.** The kurtosis of `u_i` over the 50,280 tokens identifies prediction/suppression neurons ([Gurnee et al. 2024](https://arxiv.org/abs/2401.12181); [Geva et al. 2022](https://arxiv.org/abs/2203.14680)).
+- **Vocab kurtosis.** The kurtosis of `u_i` over the 50,280 embedding rows identifies prediction/suppression neurons ([Gurnee et al. 2024](https://arxiv.org/abs/2401.12181); [Geva et al. 2022](https://arxiv.org/abs/2203.14680)).
 
 ## 5. Candidate selection (`select.py`, pre-registered)
 Each of the 393,216 poles gets three scores:
 1. **Activation kurtosis** of the neuron.
 2. **Vocab kurtosis** of `u_i`.
-3. **Input-output coherence.** The mean over the pole's top-40 firing positions of the vocab-z-scored `s·u_i[next token]`.
+3. **Input-output coherence.** The mean over the pole's top-40 firing positions of the vocab-z-scored `s·u_i[next token]`. The pre-registration text says top-20; the code used all 40 stored firings (erratum, amendment 8).
 
 The score is the mean of the three rank-percentiles. The top 60 poles go forward, with at most 3 per layer.
 
 ## 6. Labels and detection scores (`autointerp.py`, `llm.py`)
-- **Local LLM.** `qwen3.5:4b` through Ollama, at temperature 0, with thinking off and JSON-schema structured output. Every prompt and reply is logged in full.
+- **Local LLM.** `qwen3.5:9b` through Ollama (chosen over 4B in amendment 3), at temperature 0, with thinking off and JSON-schema structured output. Every prompt and reply is logged in full.
 - **Explanation.** Shows the pole's top-20 discovery firings, one per window, as 33-token snippets (24 before the peak, 8 after). Tokens with signed activation ≥ 0.4 × peak are marked `<<like this>>`. The prompt is adapted from [delphi's explainer](https://github.com/EleutherAI/delphi).
 - **Detection.** Uses 10 held-out top-firing snippets and 10 random held-out snippets, unhighlighted, shuffled with a per-pole seed. The LLM answers 0/1 for each, and the score is balanced accuracy ([Paulo et al. 2024](https://arxiv.org/abs/2410.13928)). A malformed reply scores 0.5 and is counted.
 - **H1 sample.** 2 random neurons per layer (96 neurons, 192 poles) against 2 random directions per layer (96 directions, 192 poles).
@@ -64,18 +64,18 @@ The score is the mean of the three rank-percentiles. The top 60 poles go forward
   - **clamp:** `a_i ← s·c·|pole extreme|`.
   - **add:** `a_i ← a_i + s·c·|extreme|`, which is equivalent to adding `δ·w_i` to the residual.
   - **DiffMean:** mean residual at the pole's held-out top firings minus mean at random positions, after block ℓ, scaled to the add condition's residual norm `|δ|·‖w_i‖` ([AxBench](https://arxiv.org/abs/2501.17148)).
-  - **prompting:** a `<label>:\n` prefix.
+  - **prompting:** a `<steering concept>:\n` prefix, inserted after the separator (amendment 4).
   - **random neurons:** the same relative clamp on 80 other neurons of the same layer, 10 prompts each (amendment 5; the original 20 could never survive Holm correction).
-- **Prompts.** The first 16 tokens of held-out documents. Set A (10 prompts) is used for the screens. Set B (50 prompts from a pool of 400 after A) is used for the H2 confirmation, and set C (50 prompts from the next 400) for H2b. B and C keep only prompts where the pole stays below its 90th discovery percentile on every token.
+- **Prompts.** The first 16 tokens of held-out documents. Set A (10 prompts) is used for the screens. Set B (50 prompts from a pool of 400 after A) is used for the H2 confirmation, and set C (50 prompts from the next 400) for H2b. B and C keep only prompts where the pole stays below its 90th percentile on every token; the percentile is estimated on the first 200 discovery windows. Only 47 of 400 openings qualified for L32 N2669.
 - **Doses.** The pre-registered screen uses c ∈ {2, 5, 10, 20} × pole max. The post-hoc low-dose sweep uses {0.25, 0.5, 1}. H2 confirms the screen's top 3; H2b confirms the low-dose sweep's top 3 (amendment 7), with a non-inferiority fluency rule: distinct-2 ≥ 0.9 × unsteered and judged fluency ≥ unsteered − 0.2.
-- **Judge.** The AxBench concept and fluency templates (0–2), answered by the local LLM as JSON with a one-sentence explanation and a 2k context. The concept is an output-side *steering concept* derived from the label and promoted tokens (amendment 4). The primary metric is the per-generation harmonic mean.
-- **Other metrics.** Continuation NLL under the unsteered model, and distinct-2.
+- **Judge.** The AxBench concept and fluency templates (0–2), answered by the local LLM as JSON with a one-sentence explanation and a 2k context. The concept is an output-side *steering concept* derived from the label and promoted tokens (amendment 4). The primary metric is the per-generation harmonic mean of the two. AxBench also scores instruction relevance and averages all three; we drop that score because our prompts are text to continue, not instructions.
+- **Other metrics.** Continuation NLL under the unsteered model, and distinct-2. Post hoc (added in the 2026-11-01 audit): paired prompt-cluster-bootstrap differences clamp − prompting and clamp − DiffMean (`clamp_minus_prompting`, `clamp_minus_diffmean` in `h2.json` / `h2b.json`).
 
 ## 8. Mechanism (`mechanism.py`)
-- **H3 ablation.** Zero-ablate the neuron at all positions and measure the drop in log p of the actual next token at its 200 strongest held-out firings, against 20 random same-layer neurons at the same positions.
+- **H3 ablation.** Zero-ablate the neuron at all positions and measure the drop in log p of the actual next token at its 200 strongest firings in the first 2,000 held-out windows, against 20 random same-layer neurons at the same positions. Firings on a window's last token have no next token and are dropped (196–199 positions remain).
 - **Factor split.** At the firings, compare `z_i` (from `in_proj`), `SiLU(z_i)` and `y_i = a_i / SiLU(z_i)`.
-- **Context truncation.** Re-run each firing with only the last k ∈ {1, 2, 4, 8, 16, 32} tokens plus the separator, and report the activation as a fraction of its full-context value. k ≤ 4 is the conv receptive field, so anything beyond needs the SSM state.
-- **Activation patching.** Set the neuron to its median top-firing value at one random held-out position. Measure the change in mean log p of its top-10 promoted tokens, against 20 random neurons patched with their own typical firing value.
+- **Context truncation.** Re-run each firing (the 50 strongest; the post-hoc survey uses the ≤ 40 stored held-out top firings, one per window) with only the last k ∈ {1, 2, 4, 8, 16, 32} tokens plus the separator, and report the mean activation ratio to the full-context value. k = 4 is one block's conv kernel. Through convolutions stacked over layers (with the `D` skip), a layer-ℓ neuron can still see 3ℓ + 4 tokens without the SSM, so a long-context need does not by itself show that the SSM state carries the context.
+- **Activation patching.** Set the neuron to its median top-firing value (over its 200 strongest held-out firings) at one random held-out position. Measure the change in mean log p of its top-10 promoted tokens, against 20 random neurons. Each null neuron is set to the median of its 40 strongest discovery activations, a more extreme value, so the null is not like-for-like.
 
 ## 9. Statistics (`metrics.py`)
 - **Intervals.** Wilson intervals for proportions. Percentile bootstrap (10,000 resamples) for differences. Resampling is by unit for H1, because both poles of a unit form a cluster, and by prompt for H2.

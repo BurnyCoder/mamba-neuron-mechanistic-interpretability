@@ -21,10 +21,11 @@
 | 8 | `screen` | GPU | labels, candidates | `screen_generations.json` | Clamp sweep (2, 5, 10, 20 × max) on 10 neutral prompts for well-labelled candidates. |
 | 9 | `screen_judge` | LLM | screen generations | `results/screen.json`, `results/confirm_plan.json` | AxBench concept and fluency judging. Picks ≤ 3 poles and their clamp levels. |
 | – | *(manual)* | – | confirm plan | `reports/preregistration.md` | Append the plan as an amendment, then commit and push **before** step 10. |
-| 9b | `screen_low` / `screen_low_judge` | GPU / LLM | screen poles | `results/screen_low.json` | Post-hoc low-dose sweep (0.25, 0.5, 1×), judged with the same steering concepts. |
+| 9b | `screen_low` / `screen_low_judge` | GPU / LLM | screen poles | `results/screen_low.json`, `results/confirm_plan_h2b.json` | Post-hoc low-dose sweep (0.25, 0.5, 1×), judged with the same steering concepts. The top 3 poles by HM gain, at their best dose, become the H2b plan. |
+| – | *(manual)* | – | H2b plan | `reports/preregistration.md` | Append the H2b plan and rule as an amendment, then commit and push **before** step 11b. |
 | 10 | `confirm` | GPU | plan | `confirm_generations.json` | 50 neutral prompts (set B) × 2 seeds for each condition, plus an 80-neuron × 10-prompt random null. |
-| 11 | `confirm_judge` | LLM | generations | `results/h2.json` | Judging and the pre-registered H2 statistics. `h2_stats` recomputes them without re-judging. |
-| 11b | `confirm_h2b` / `confirm_h2b_judge` | GPU / LLM | `results/confirm_plan_h2b.json` | `results/h2b.json` | H2b: the same protocol on fresh prompt set C at the low doses, with the non-inferior-fluency rule (amendment 7). |
+| 11 | `confirm_judge` | LLM | generations | `results/h2.json` | Judging and the pre-registered H2 statistics, plus post-hoc clamp − prompting and clamp − DiffMean differences. `h2_stats` recomputes the statistics without re-judging. |
+| 11b | `confirm_h2b` / `confirm_h2b_judge` | GPU / LLM | `results/confirm_plan_h2b.json` | `results/h2b.json` | H2b: the same protocol on fresh prompt set C at the low doses, with the non-inferior-fluency rule (amendment 7). `h2b_stats` recomputes the statistics without re-judging. |
 | 12 | `mechanism` | GPU | plan | `results/h3_mechanism.json` | H3 ablation, factor split, context truncation, patching. |
 | 12b | `truncation_survey` | GPU | screen poles | `results/truncation_survey.json` | Post-hoc context-truncation curves for all 39 screened poles, with early layers as the local control. |
 | 13 | `export` | – | all results | `site/data/` | Viewer data. |
