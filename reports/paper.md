@@ -303,9 +303,9 @@ The layer-27–32 prediction neurons ("as", "from", "set", "per", "[", digits) a
 
 - **Specific and controllable.** Single Mamba neurons are causally steerable, and the effect is specific. At both confirmation doses (H2 and H2b), the target concept appeared far more often than under 80 random neurons pushed equally hard. The prompting baseline raised the concept only modestly: 0.11–0.48, against 0.83–1.78 for clamping.
 
-- **Dose matters.** The pre-registered doses, borrowed from SAE-feature clamping at multiples of the maximum, are wrong for neurons whose maxima are 9–39× their typical strong firings. Those doses produce degenerate repetition. A quarter to half of the maximum gives fluent text with the concept injected, which H2b confirmed on fresh prompts.
+- **Dose matters.** The pre-registered doses, borrowed from SAE-feature clamping at multiples of the maximum, are wrong for neurons whose maxima are 9–39× their typical strong firings. Those doses produce degenerate repetition. A quarter to half of the maximum injects the concept while fluency stays non-inferior to unsteered text (by the pre-registered rule), which H2b confirmed on fresh prompts.
 
-- **Better than DiffMean here.** In this regime the neuron's own write direction outperformed DiffMean at the same norm on our metric. That differs from AxBench's finding that DiffMean is a strong representation baseline, but our concepts are single function words rather than topics, and only one norm was compared.
+- **Mostly better than DiffMean here.** In this regime the neuron's own write direction outperformed DiffMean at the same norm on our metric for "from" and "first"; for "as" the difference was not significant (post hoc). That differs from AxBench's finding that DiffMean is a strong representation baseline, but our concepts are single function words rather than topics, and only one norm was compared.
 
 **Sufficient but not necessary.** Turning a neuron up reliably changes output, but removing it barely hurts prediction where it fires (≤ 0.012 nats). This asymmetry suggests distributed or redundant computation, or downstream compensation ([McGrath et al., 2023](https://arxiv.org/abs/2307.15771)). It warns against reading steerability as evidence that a neuron is *the* mechanism for its token.
 
@@ -318,7 +318,7 @@ The layer-27–32 prediction neurons ("as", "from", "set", "per", "[", digits) a
 ## 6 Limitations
 
 - **Labeller and judge.** All labels, detection decisions and steering ratings come from a local 9B model (qwen3.5:9b).
-  - Its detection decisions agree only moderately with careful rating (κ = 0.55).
+  - Its detection decisions agree only moderately with blind reference ratings (κ = 0.55).
   - Its fluency ratings are systematically harsh and only fairly reliable (κ = 0.34), although its concept ratings are good (κ = 0.79).
   - The "manual" reference ratings were produced by Claude Code, not by human annotators.
   - AxBench's instruction-relevance score is not used, so our HM is a two-score version of its metric.
@@ -393,13 +393,13 @@ The neurons we confirmed, for "from", "as" and "first", are lexical, and their n
 
 - Meng et al. (2022). Locating and Editing Factual Associations in GPT. [arXiv:2202.05262](https://arxiv.org/abs/2202.05262)
 
+- Panickssery (formerly Rimsky) et al. (2024). Steering Llama 2 via Contrastive Activation Addition. [arXiv:2312.06681](https://arxiv.org/abs/2312.06681)
+
 - Paulo et al. (2024). Automatically Interpreting Millions of Features in Large Language Models. [arXiv:2410.13928](https://arxiv.org/abs/2410.13928)
 
 - Phipson & Smyth (2010). Permutation P-values Should Never Be Zero. [SAGMB](https://doi.org/10.2202/1544-6115.1585)
 
 - Pitorro & Treviso (2025). LaTIM: Measuring Latent Token-to-Token Interactions in Mamba Models. [arXiv:2502.15612](https://arxiv.org/abs/2502.15612)
-
-- Panickssery (formerly Rimsky) et al. (2024). Steering Llama 2 via Contrastive Activation Addition. [arXiv:2312.06681](https://arxiv.org/abs/2312.06681)
 
 - Sharma, Atkinson & Bau (2024). Locating and Editing Factual Associations in Mamba. [arXiv:2404.03646](https://arxiv.org/abs/2404.03646)
 
