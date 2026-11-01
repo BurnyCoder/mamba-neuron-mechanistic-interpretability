@@ -3,7 +3,8 @@ a generation phase (Mamba on GPU) and a judging phase (Ollama on GPU), never bot
 
 Local explanation:
   * screen: clamp each well-labelled candidate pole at c x |pole extreme| for c in LEVELS on 10 prompts; judge concept
-    (the pole's label) + fluency; pick <= 3 poles by mean harmonic-mean gain over unsteered -> results/confirm_plan.json.
+    (the pole's output-side steering concept, amendment 4) + fluency; pick <= 3 poles by mean harmonic-mean gain over
+    unsteered -> results/confirm_plan.json (the post-hoc low-dose sweep does the same -> confirm_plan_h2b.json).
   * confirm: for each planned pole, 50 neutral prompts (neuron inactive) x 2 seeds under unsteered / clamp / add /
     DiffMean / prompting, plus 80 random same-layer neurons x 10 prompts (amendment 5); judge; H2 statistics.
 Global context: H2 in reports/preregistration.md; the confirm plan must be appended there before `confirm` runs.
@@ -127,18 +128,25 @@ def _screen_judge(settings, levels, tag: str, reuse_concepts: bool) -> list[dict
     return summary
 
 
+def _plan(summary: list[dict]) -> list[dict]:
+    """Confirmation plan: the first 3 poles of a sweep summary (already sorted by mean HM gain) at their best level."""
+    return [{k: s[k] for k in ("key", "layer", "neuron", "sign", "label", "concept", "best_level", "hm_gain")} for s in summary[:3]]
+
+
 def phase_screen_judge(settings) -> None:
     """Judge the screen; choose <= 3 poles (and their level) for confirmation by mean HM gain over unsteered."""
     summary = _screen_judge(settings, LEVELS, "screen", reuse_concepts=False)
-    plan = [{k: s[k] for k in ("key", "layer", "neuron", "sign", "label", "concept", "best_level", "hm_gain")} for s in summary[:3]]
+    plan = _plan(summary)
     save_json(plan, settings.results_path() / "confirm_plan.json")
     log.info("confirm plan: %s", plan)
 
 
 def phase_screen_low_judge(settings) -> None:
-    """POST HOC: judge the low-dose sweep with the screen's steering concepts (no plan is written)."""
+    """POST HOC: judge the low-dose sweep with the screen's steering concepts; the top 3 poles by HM gain, at their
+    best dose, become the H2b plan (results/confirm_plan_h2b.json, frozen in amendment 7 before `confirm_h2b`)."""
     summary = _screen_judge(settings, LOW_LEVELS, "screen_low", reuse_concepts=True)
     log.info("low-dose sweep, top 5 by HM gain: %s", [(s["key"], s["concept"], s["best_level"], round(s["hm_gain"], 2)) for s in summary[:5]])
+    save_json(_plan(summary), settings.results_path() / "confirm_plan_h2b.json")
 
 
 def _neutral_prompt_set(model, held, disc, layer, neuron, sign, seed, skip: int) -> np.ndarray:
@@ -228,18 +236,25 @@ def _confirm_stats(settings, rows: list[dict], plan: dict, out_name: str, noninf
             cond[name]["hm_ci95"] = list(cluster_bootstrap_mean(hm, clusters, seed=settings.seed)[1:])
         nulls = [rs for name, rs in by.items() if name.startswith("random:")]
         null = [float(np.mean([r["hm"] for r in rs])) for rs in nulls]
-        clamp, base = by["clamp"], by["unsteered"]
         order = lambda rs: sorted(rs, key=lambda r: (r["seed"], r["prompt_idx"]))  # pair identical prompt + seed
-        diff = cluster_bootstrap_diff([r["hm"] for r in order(clamp)], [r["hm"] for r in order(base)],
-                                      [r["prompt_idx"] for r in order(clamp)], seed=settings.seed)
+        clamp = order(by["clamp"])
+
+        def clamp_minus(other: str) -> dict:
+            """Paired clamp - `other` HM difference with a prompt-cluster bootstrap CI."""
+            d = cluster_bootstrap_diff([r["hm"] for r in clamp], [r["hm"] for r in order(by[other])],
+                                       [r["prompt_idx"] for r in clamp], seed=settings.seed)
+            return {"diff": d[0], "ci95": [d[1], d[2]]}
+
         p_null = empirical_p(cond["clamp"]["hm"], null)
         pvals.append(p_null)
         results[key] = {"label": plan[key]["label"], "concept": plan[key]["concept"], "level": plan[key]["best_level"],
-                        "conditions": cond, "random_null_hm": null,
+                        "n_prompts": len({r["prompt_idx"] for r in clamp}), "conditions": cond, "random_null_hm": null,
                         "random_null_concept": [float(np.mean([r["concept"] for r in rs])) for rs in nulls],
                         "random_null_fluency": [float(np.mean([r["fluency"] for r in rs])) for rs in nulls],
                         "p_concept_vs_random_null": empirical_p(cond["clamp"]["concept"], [float(np.mean([r["concept"] for r in rs])) for rs in nulls]),
-                        "clamp_minus_unsteered": {"diff": diff[0], "ci95": [diff[1], diff[2]]}, "p_vs_random_null": p_null}
+                        "clamp_minus_unsteered": clamp_minus("unsteered"), "p_vs_random_null": p_null,
+                        # POST HOC (added in the 2026-11-01 audit): neuron clamp vs the two baselines, same pairing
+                        "clamp_minus_prompting": clamp_minus("prompting"), "clamp_minus_diffmean": clamp_minus("diffmean")}
     for key, p_adj in zip(results, holm(pvals)):
         r = results[key]
         r["p_holm"] = p_adj
@@ -257,10 +272,20 @@ def phase_confirm_judge(settings) -> None:
     _confirm_judge(settings, "confirm_plan", "confirm_generations", "h2", noninferiority=False)
 
 
+def _restats(settings, plan_name: str, out_name: str, noninferiority: bool) -> None:
+    """Recompute confirmation statistics from the already-judged rows in results/<out_name>.json (no LLM calls)."""
+    plan = {p["key"]: p for p in load_json(settings.results_path() / f"{plan_name}.json")}
+    _confirm_stats(settings, load_json(settings.results_path() / f"{out_name}.json")["generations"], plan, out_name, noninferiority)
+
+
 def phase_h2_stats(settings) -> None:
-    """Recompute the H2 statistics from the already-judged rows in results/h2.json (e.g. after adding verdicts)."""
-    plan = {p["key"]: p for p in load_json(settings.results_path() / "confirm_plan.json")}
-    _confirm_stats(settings, load_json(settings.results_path() / "h2.json")["generations"], plan, "h2", noninferiority=False)
+    """Recompute the H2 statistics without re-judging (e.g. after adding verdicts or post-hoc comparisons)."""
+    _restats(settings, "confirm_plan", "h2", noninferiority=False)
+
+
+def phase_h2b_stats(settings) -> None:
+    """Recompute the H2b statistics without re-judging."""
+    _restats(settings, "confirm_plan_h2b", "h2b", noninferiority=True)
 
 
 def phase_confirm_h2b_judge(settings) -> None:
