@@ -19,7 +19,7 @@
 | Fraction with positive skew | 85.6% | 45.8% |
 | Fraction of tokens with a > 0, median | 0.52 | 0.49 |
 
-**Reading.** A Gaussian has kurtosis 3. A typical Mamba neuron sits near zero and occasionally fires very strongly, and 86% of neurons fire on their *positive* pole. Random directions in the same 4096-d space are much closer to Gaussian. This is direct statistical evidence for a privileged neuron basis, which is what you'd expect from the elementwise `SiLU(z)` gate and the per-channel SSM. It is correlational and exploratory; H1 tests the interpretability side (experiment 2).
+**Reading.** A Gaussian has kurtosis 3. A typical Mamba neuron sits near zero and occasionally fires very strongly, and 86% of neurons are positively skewed: their rare large activations are mostly positive. Random directions in the same 4096-d space are much closer to Gaussian. This is direct statistical evidence for a privileged neuron basis, which is what you'd expect from the elementwise `SiLU(z)` gate and the per-channel SSM. It is correlational and exploratory; H1 tests the interpretability side (experiment 2).
 
 **Reliability.** The statistics are stable across disjoint document sets. Spearman ρ between the discovery and held-out splits, over all neurons:
 
