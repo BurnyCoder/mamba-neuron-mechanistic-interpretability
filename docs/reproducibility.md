@@ -50,7 +50,7 @@ Approximate wall time on the test machine:
 | Screen | 16 min generation + 50 min judging |
 | H2 confirmation | 28 min generation + 2 h judging |
 | Mechanism (H3) | 52 min |
-| Low-dose sweep | 10 min generation + 43 min judging |
+| Low-dose sweep | 11 min generation + 44 min judging |
 | H2b confirmation | 28 min generation + 1 h 36 min judging |
 | Truncation survey | 17 min |
 
