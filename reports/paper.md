@@ -154,9 +154,9 @@ The protocol runs in three stages:
 
 - **Factor split.** Decompose `a = y·SiLU(z)` at the firings.
 
-- **Context truncation.** Re-run each firing with only the last k ∈ {1, 2, 4, 8, 16, 32} tokens, to measure how much context it needs. k = 4 is one block's convolution kernel, but convolutions stacked over layers reach back 3ℓ + 4 tokens at layer ℓ. This test therefore does not separate the convolution path from SSM memory.
+- **Context truncation.** Re-run the 50 strongest of these firings with only the last k ∈ {1, 2, 4, 8, 16, 32} tokens, to measure how much context it needs. k = 4 is one block's convolution kernel, but convolutions stacked over layers reach back 3ℓ + 4 tokens at layer ℓ. This test therefore does not separate the convolution path from SSM memory.
 
-- **Activation patching.** Set the neuron to its median firing value at one random held-out position, and measure the change in log p of its 10 promoted tokens against 20 random neurons. Each null neuron is set to the median of its 40 strongest discovery activations, a more extreme value than the target's donor, so this comparison is not like-for-like.
+- **Activation patching.** Set the neuron to its median firing value at a single random held-out position (repeated over 200 such positions), and measure the change in log p of its 10 promoted tokens against 20 random neurons. Each null neuron is set to the median of its 40 strongest discovery activations, a more extreme value than the target's donor, so this comparison is not like-for-like.
 
 **Pre-registration.** Hypotheses, metrics, tests and thresholds were committed to the public repository before the main-model analyses ([preregistration.md](https://github.com/BurnyCoder/mamba-neuron-mechanistic-interpretability/blob/main/reports/preregistration.md)). Every later change is a dated amendment listing what data existed at the time (Appendix A).
 
@@ -247,7 +247,7 @@ The baselines behaved differently:
 ![**Figure 2.** H2. Left: HM per condition with 95% prompt-cluster-bootstrap CIs. Right: concept score. Gray dots: 80 random same-layer neurons at the same relative clamp.](../results/mamba-1.4b-hf/figures/h2_conditions.png)
 
 ### 4.5 Post-hoc low-dose regime and H2b
-The pre-registered doses (≥ 2× the maximum) sit far outside these neurons' natural range. For the three H2 poles, the median of the 200 strongest firings in 256k held-out tokens is 9–39× below the discovery maximum. The lower doses are also well above that range: for L30 N2121, which appears in both confirmations, 0.5× its maximum is about 19× the median of its 200 strongest held-out firings, applied at every token. A post-hoc sweep at 0.25×, 0.5× and 1× found a regime where the concept enters with much less damage to the text (Table 2). The best poles kept judged fluency within 0.1–0.2 of the unsteered level (0.5–0.8 vs 0.6) and distinct-2 at 0.82–0.93 (unsteered 0.91):
+The pre-registered doses (≥ 2× the maximum) sit far outside these neurons' natural range. For the three H2 poles, the median of the 200 strongest firings in 256k held-out tokens is 9–39× below the discovery maximum. The lower doses are also well above that range: for L30 N2121, which appears in both confirmations, 0.5× its maximum is about 19× the median of its 200 strongest held-out firings, applied at every token. A post-hoc sweep at 0.25×, 0.5× and 1× found a regime where the concept enters with much less damage to the text (Table 2). The best poles kept judged fluency within 0.2 of the unsteered level (0.5–0.8 vs 0.6) and distinct-2 at 0.82–0.93 (unsteered 0.91):
 
 - L30 N815 ("from", 0.5×): HM 0.67, concept 1.6.
 
@@ -467,7 +467,7 @@ The neurons we confirmed, for "from", "as" and "first", are lexical, and their n
 
 - Liu (2026). Leverage Is Not Reach: A Control-Window Law for Single-Neuron Steering in Language Models. [arXiv:2606.19831](https://arxiv.org/abs/2606.19831)
 
-- Lones (2021). How to avoid machine learning pitfalls. [arXiv:2108.02497](https://arxiv.org/abs/2108.02497)
+- Lones (2021). How to avoid machine learning pitfalls: a guide for academic researchers. [arXiv:2108.02497](https://arxiv.org/abs/2108.02497)
 
 - McGrath et al. (2023). The Hydra Effect: Emergent Self-repair in Language Model Computations. [arXiv:2307.15771](https://arxiv.org/abs/2307.15771)
 
