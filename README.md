@@ -8,11 +8,11 @@ Neuron-level mechanistic interpretability of the **Mamba-1.4B** state-space lang
 4. Audit how many neurons are clean.
 5. Turn single neurons up during generation, compared against random-neuron, DiffMean and prompting baselines.
 
-All confirmatory tests are pre-registered ([reports/preregistration.md](reports/preregistration.md), 8 dated amendments; the 8th is an audit erratum); post-hoc analyses are labelled as such. Everything runs locally on an 8 GB laptop GPU, with a local LLM (Qwen3.5-9B via Ollama) as labeller and judge.
+All confirmatory tests are pre-registered ([reports/preregistration.md](reports/preregistration.md), 9 dated amendments; the 8th is an audit erratum and the 9th declares a deviation in the judge-validation rater and adds post-hoc analyses); post-hoc analyses are labelled as such. Everything runs locally on an 8 GB laptop GPU, with a local LLM (Qwen3.5-9B via Ollama) as labeller and judge.
 
 **Interactive viewer:** https://burnycoder.github.io/mamba-neuron-mechanistic-interpretability/ · **Dataset:** [BurnyCoder/mamba-1.4b-neuron-atlas](https://huggingface.co/datasets/BurnyCoder/mamba-1.4b-neuron-atlas) ([collection](https://huggingface.co/collections/BurnyCoder/mamba-neuron-interpretability-6ae23bf88df873e27b8320a2)) · **Paper:** [reports/paper.pdf](reports/paper.pdf)
 
-![Neuron viewer: L37 N71 fires on "first" in "for the first time" / "in the first place"; turned up gently it makes the model write "first" in fluent text](docs/images/viewer.png)
+![Neuron viewer: L37 N71 fires on "first" in "for the first time" / "in the first place"; turned up gently it makes the model write "first" with judged fluency near unsteered text](docs/images/viewer.png)
 
 ![Dose-response of the three H2b neurons on 10 prompts: the best low dose (0.5× for "from" and "as", 0.25× for "first", left of the dotted line) injects the concept with judged fluency near unsteered (a judge that is unreliable on fluent text); at the pre-registered doses (≥2×) judged fluency drops to 0–0.3](results/mamba-1.4b-hf/figures/dose_response_h2b.png)
 
@@ -88,7 +88,7 @@ Unit tests verify the hook site. `out_proj(a)` equals the mixer output, and addi
 **In plain language:**
 - **More concept than every control.** Clamping one of these neurons makes the model use its word or concept far more than unsteered text, more than prompting with the concept, and more than any of 80 random neurons pushed equally hard. This holds by the LLM judge and by a direct count of the word. On the harmonic mean, 10 of 12 post-hoc neuron-vs-baseline comparisons remain significant after Holm correction. The exceptions are "[" vs prompting (H2) and "as" vs DiffMean (H2b). Neither baseline was tuned, and the prompt is a bare prefix on a base model.
 - **Worse at preserving text quality at strong doses.** At the pre-registered doses the text gets repetitive, so judged fluency falls below unsteered text. At the H2b doses the point estimates meet the pre-registered fluency margins, but a CI-based test passes for only one neuron and NLL rises, so fluency preservation is not established.
-- **DiffMean at the same norm.** At the H2 doses it simply repeats the word (harmonic mean 0). At the H2b doses it does better than prompting, but has a lower harmonic mean than the neuron except for "as". It writes "from" and "as" more often than the neuron, with more repetition.
+- **DiffMean at the same norm.** At the H2 doses it simply repeats the word (harmonic mean 0). At the H2b doses it does better than prompting, but has a lower harmonic mean than the neuron for all three (0.16 vs 0.46, 0.19 vs 0.24, 0.15 vs 0.35); for "as" the difference is not significant. It writes "from" and "as" more often than the neuron, with more repetition.
 
 | Other tests | Result |
 |---|---|

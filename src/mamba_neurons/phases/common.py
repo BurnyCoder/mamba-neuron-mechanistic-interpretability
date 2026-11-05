@@ -20,7 +20,7 @@ SPLITS = ("discovery", "heldout")
 def free_gpu() -> None:
     """Release cached GPU memory before the next GPU user (e.g. Ollama); callers `del model` first."""
     gc.collect()
-    torch.cuda.empty_cache()  # https://pytorch.org/docs/stable/generated/torch.cuda.empty_cache.html
+    torch.cuda.empty_cache()  # https://docs.pytorch.org/docs/stable/generated/torch.cuda.memory.empty_cache.html
 
 
 def windows_tag(settings) -> str:

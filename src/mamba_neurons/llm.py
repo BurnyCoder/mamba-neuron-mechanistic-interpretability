@@ -41,5 +41,5 @@ class LocalLLM:
         return {}
 
     def unload(self) -> None:
-        """Free the GPU: a request with keep_alive=0 unloads the model (https://github.com/ollama/ollama/blob/main/docs/faq.md)."""
+        """Free the GPU: a request with keep_alive=0 unloads the model (https://docs.ollama.com/faq)."""
         self.client.generate(model=self.model, prompt="", keep_alive=0)
