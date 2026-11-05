@@ -213,7 +213,7 @@ The steering judge was validated on 40 screen generations, rated by Claude Code 
 | 2 | 0.82 | 0.48 | 0.11 | 0.39 | 0.022 |
 | 5 | 0.67 | 0.40 | 0.05 | 0.27 | 0.008 |
 | 10 | 0.76 | 0.45 | 0.02 | 0.21 | 0.000 |
-| 20 | 0.70 | 0.41 | 0.01 | 0.17 | 0.000 |
+| 20 | 0.69 | 0.41 | 0.01 | 0.17 | 0.000 |
 
 ### 4.4 H2: pre-registered confirmation
 The three pre-registered poles were each confirmed on 50 fresh neutral prompts (47 for L32 N2669) × 2 seeds, against an 80-neuron random null (Table 4, Figure 2). Clamping raised the HM above unsteered for all three. The paired 95% CIs exclude 0: +0.29 for "as", +0.09 for "[", +0.27 for "set".

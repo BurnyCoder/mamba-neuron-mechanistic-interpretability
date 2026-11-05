@@ -15,11 +15,11 @@ Averaged over all 39 poles. The unsteered row repeats the same 10 unsteered text
 
 | Dose | Concept | P(concept ≥ 1) | Fluency (judge) | HM | NLL (unsteered model) | distinct-2 |
 |---|---|---|---|---|---|---|
-| unsteered | 0.08 | 0.06 | 0.60 | 0.050 | 1.14 | 0.91 |
+| unsteered | 0.08 | 0.06 | 0.60 | 0.050 | 1.13 | 0.91 |
 | 2× | **0.82** | **0.48** | 0.11 | 0.022 | 1.80 | 0.39 |
 | 5× | 0.67 | 0.40 | 0.05 | 0.008 | 2.10 | 0.27 |
 | 10× | 0.76 | 0.45 | 0.02 | 0.000 | 2.14 | 0.21 |
-| 20× | 0.70 | 0.41 | 0.01 | 0.000 | 2.02 | 0.17 |
+| 20× | 0.69 | 0.41 | 0.01 | 0.000 | 2.02 | 0.17 |
 
 **Reading.** Clamping a single neuron at ≥ 2× its maximum injects its concept about 8 to 10 times more often than unsteered text (concept 0.08 → 0.82). It also wrecks fluency: the text degenerates into repetition of the promoted token, and distinct-2 falls from 0.91 to 0.39. Examples (prompt set A, 2× unless noted):
 - **L37 N1812** ("after all" → `all`): " all all all all …"
